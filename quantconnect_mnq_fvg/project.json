@@ -1,0 +1,56 @@
+{
+  "name": "MNQ-FVG-ML-Trading",
+  "description": "Micro E-mini Nasdaq-100 Fair Value Gap detection with ML prediction system",
+  "version": "1.0.0",
+  "organization_id": "fractal-fvg",
+  "project_id": "mnq-fvg-ml-trading",
+  "language": "CSharp",
+  "lean_version": "2.5.0",
+  "parameters": {
+    "algorithm-language": "CSharp",
+    "algorithm-location": "Main.cs",
+    "data-provider": "QuantConnect",
+    "data-history": "2years",
+    "resolution": "Minute",
+    "start-date": "2023-01-01",
+    "end-date": "2024-12-31",
+    "initial-cash": "100000",
+    "benchmark": "SPY"
+  },
+  "libraries": [
+    {
+      "name": "QuantConnect.Algorithm",
+      "version": "2.5.0"
+    },
+    {
+      "name": "QuantConnect.Indicators",
+      "version": "2.5.0"
+    },
+    {
+      "name": "QuantConnect.Data.Market",
+      "version": "2.5.0"
+    }
+  ],
+  "regions": [
+    "USA"
+  ],
+  "markets": [
+    "CME"
+  ],
+  "symbols": [
+    "MNQ"
+  ],
+  "tags": [
+    "futures",
+    "mnq",
+    "fvg",
+    "machine-learning",
+    "fair-value-gap",
+    "multi-timeframe",
+    "nasdaq-100"
+  ],
+  "author": "FractalFVG Project",
+  "license": "MIT",
+  "created": "2025-10-20T16:38:33Z",
+  "updated": "2025-10-20T16:38:33Z"
+}
