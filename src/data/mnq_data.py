@@ -70,6 +70,12 @@ class MNQDataConfig:
     tick_type: str = "trade"
     normalization_mode: str = "raw"
     
+    # Contract rolling settings
+    enable_contract_rolling: bool = True
+    roll_days_before_expiry: int = 5  # Roll 5 days before expiry
+    roll_method: str = "ratio"  # "ratio", "difference", or "raw"
+    continuous_contract_symbol: str = "MNQ"  # Symbol for continuous contract
+    
     # Data quality settings
     min_volume_threshold: int = 100
     max_price_jump_percent: float = 0.5  # Maximum allowed price jump
@@ -82,12 +88,39 @@ class MNQDataConfig:
     memory_limit_mb: int = 1024
 
 
+@dataclass
+class FuturesContract:
+    """Futures contract information."""
+    symbol: str
+    contract_month: str
+    expiry_date: datetime
+    first_notice_date: Optional[datetime] = None
+    roll_date: Optional[datetime] = None
+    
+    def get_full_symbol(self) -> str:
+        """Get the full futures symbol (e.g., MNQH24)."""
+        return f"{self.symbol}{self.contract_month}"
+        
+    def is_expired(self, current_date: datetime) -> bool:
+        """Check if contract is expired."""
+        return current_date >= self.expiry_date
+        
+    def should_roll(self, current_date: datetime, roll_days_before: int) -> bool:
+        """Check if contract should be rolled."""
+        if self.roll_date:
+            return current_date >= self.roll_date
+        else:
+            roll_date = self.expiry_date - timedelta(days=roll_days_before)
+            return current_date >= roll_date
+
+
 class MNQDataAccess:
     """
     Data access layer for MNQ futures historical data.
     
     This class provides comprehensive data retrieval, caching, and processing
-    capabilities for MNQ futures data from QuantConnect and local storage.
+    capabilities for MNQ futures data from QuantConnect and local storage,
+    including proper contract rolling for continuous data series.
     """
     
     def __init__(self, config: Optional[MNQDataConfig] = None):
@@ -100,6 +133,7 @@ class MNQDataAccess:
         self.config = config or MNQDataConfig()
         self.data_cache: Dict[str, pd.DataFrame] = {}
         self.cache_timestamps: Dict[str, datetime] = {}
+        self.contract_cache: Dict[str, FuturesContract] = {}
         
         # Ensure data directory exists
         if self.config.enable_local_cache:
@@ -124,6 +158,13 @@ class MNQDataAccess:
         if self._is_cache_valid(cache_key):
             return self.data_cache[cache_key].copy()
             
+        # If contract rolling is enabled, get continuous contract data
+        if self.config.enable_contract_rolling:
+            continuous_data = self._get_continuous_contract_data(start_date, end_date, resolution)
+            if continuous_data is not None:
+                self._cache_data(cache_key, continuous_data)
+                return continuous_data
+        
         # Try to load from local storage
         local_data = self._load_from_local_storage(start_date, end_date, resolution)
         if local_data is not None:
@@ -512,11 +553,254 @@ class MNQDataAccess:
             'oldest_cache': min(self.cache_timestamps.values()) if self.cache_timestamps else None,
             'newest_cache': max(self.cache_timestamps.values()) if self.cache_timestamps else None
         }
+        
+    def _get_continuous_contract_data(self, start_date: datetime, end_date: datetime,
+                                    resolution: str) -> Optional[pd.DataFrame]:
+        """
+        Get continuous contract data with proper rolling.
+        
+        Args:
+            start_date: Start date for data retrieval
+            end_date: End date for data retrieval
+            resolution: Data resolution
+            
+        Returns:
+            DataFrame with continuous contract data
+        """
+        # Get contract series for the date range
+        contracts = self._get_contract_series(start_date, end_date)
+        
+        if not contracts:
+            return None
+            
+        # Get data for each contract
+        contract_data_list = []
+        
+        for i, contract in enumerate(contracts):
+            # Determine date range for this contract
+            contract_start = max(start_date, contract.roll_date or start_date)
+            contract_end = min(end_date, contract.expiry_date)
+            
+            if contract_start >= contract_end:
+                continue
+                
+            # Get data for this specific contract
+            contract_symbol = contract.get_full_symbol()
+            try:
+                contract_data = self._get_single_contract_data(
+                    contract_symbol, contract_start, contract_end, resolution
+                )
+                
+                if contract_data is not None and not contract_data.empty:
+                    # Apply rolling adjustments if not the first contract
+                    if i > 0 and self.config.roll_method != "raw":
+                        contract_data = self._apply_rolling_adjustment(
+                            contract_data, contracts[i-1], contract
+                        )
+                    
+                    contract_data_list.append(contract_data)
+                    
+            except Exception as e:
+                print(f"Error getting data for {contract_symbol}: {e}")
+                continue
+                
+        if not contract_data_list:
+            return None
+            
+        # Combine all contract data
+        continuous_data = pd.concat(contract_data_list, ignore_index=False)
+        continuous_data = continuous_data.sort_index()
+        
+        # Remove any duplicates
+        continuous_data = continuous_data[~continuous_data.index.duplicated(keep='first')]
+        
+        return continuous_data
+        
+    def _get_contract_series(self, start_date: datetime, end_date: datetime) -> List[FuturesContract]:
+        """
+        Get the series of contracts for the given date range.
+        
+        Args:
+            start_date: Start date
+            end_date: End date
+            
+        Returns:
+            List of contracts in chronological order
+        """
+        contracts = []
+        current_date = start_date
+        
+        # Generate contract months (MNQ trades quarterly: H, M, U, Z)
+        contract_months = ['H', 'M', 'U', 'Z']  # March, June, September, December
+        
+        year = current_date.year
+        month = current_date.month
+        
+        # Find the next contract month
+        while current_date <= end_date:
+            # Find the next contract month
+            for month_code in contract_months:
+                month_number = get_contract_months()[month_code]
+                contract_date = datetime(year, month_number, 1)
+                
+                # Generate expiry date (3rd Friday of the month for MNQ)
+                expiry_date = self._get_third_friday(year, month_number)
+                
+                # Create contract
+                contract = FuturesContract(
+                    symbol=self.config.symbol,
+                    contract_month=f"{month_code}{str(year)[-2:]}",
+                    expiry_date=expiry_date,
+                    roll_date=expiry_date - timedelta(days=self.config.roll_days_before_expiry)
+                )
+                
+                # Check if this contract is relevant for our date range
+                if contract.roll_date <= end_date and contract.expiry_date >= start_date:
+                    contracts.append(contract)
+                    
+                # Move to next quarter
+                if month_number >= 12:
+                    year += 1
+                    break
+                    
+            current_date = datetime(year, month_number + 3, 1)
+            
+        return contracts
+        
+    def _get_third_friday(self, year: int, month: int) -> datetime:
+        """
+        Calculate the third Friday of a given month and year.
+        
+        Args:
+            year: Year
+            month: Month
+            
+        Returns:
+            Third Friday datetime
+        """
+        # Find the first day of the month
+        first_day = datetime(year, month, 1)
+        
+        # Find the first Friday
+        days_until_friday = (4 - first_day.weekday()) % 7
+        first_friday = first_day + timedelta(days=days_until_friday)
+        
+        # Add 14 days to get the third Friday
+        third_friday = first_friday + timedelta(days=14)
+        
+        return third_friday
+        
+    def _get_single_contract_data(self, symbol: str, start_date: datetime, 
+                                end_date: datetime, resolution: str) -> Optional[pd.DataFrame]:
+        """
+        Get data for a single futures contract.
+        
+        Args:
+            symbol: Contract symbol (e.g., MNQH24)
+            start_date: Start date
+            end_date: End date
+            resolution: Data resolution
+            
+        Returns:
+            DataFrame with contract data
+        """
+        # Check cache first
+        cache_key = f"{symbol}_{start_date.date()}_{end_date.date()}_{resolution}"
+        
+        if self._is_cache_valid(cache_key):
+            return self.data_cache[cache_key].copy()
+            
+        # Try to load from local storage
+        local_data = self._load_from_local_storage(start_date, end_date, resolution, symbol)
+        if local_data is not None:
+            self._cache_data(cache_key, local_data)
+            return local_data
+            
+        # Fetch from QuantConnect
+        if self.config.enable_quantconnect:
+            qc_data = self._fetch_contract_from_quantconnect(symbol, start_date, end_date, resolution)
+            if qc_data is not None:
+                processed_data = self._process_data(qc_data)
+                
+                # Save to local cache
+                if self.config.enable_local_cache:
+                    self._save_to_local_storage(processed_data, start_date, end_date, resolution, symbol)
+                    
+                self._cache_data(cache_key, processed_data)
+                return processed_data
+                
+        return None
+        
+    def _apply_rolling_adjustment(self, new_contract_data: pd.DataFrame,
+                                old_contract: FuturesContract, 
+                                new_contract: FuturesContract) -> pd.DataFrame:
+        """
+        Apply rolling adjustment to new contract data.
+        
+        Args:
+            new_contract_data: Data for the new contract
+            old_contract: Previous contract
+            new_contract: New contract
+            
+        Returns:
+            Adjusted contract data
+        """
+        if self.config.roll_method == "raw":
+            return new_contract_data
+            
+        # Get overlapping data for ratio calculation
+        overlap_start = new_contract.roll_date
+        overlap_end = min(new_contract.expiry_date, overlap_start + timedelta(days=5))
+        
+        # For this implementation, we'll use a simple adjustment factor
+        # In practice, you'd calculate this from actual overlapping data
+        adjustment_factor = 1.0  # Placeholder
+        
+        if self.config.roll_method == "ratio":
+            # Apply ratio adjustment
+            price_columns = ['open', 'high', 'low', 'close']
+            for col in price_columns:
+                if col in new_contract_data.columns:
+                    new_contract_data[col] = new_contract_data[col] * adjustment_factor
+                    
+        elif self.config.roll_method == "difference":
+            # Apply difference adjustment
+            adjustment_amount = 0.0  # Placeholder
+            price_columns = ['open', 'high', 'low', 'close']
+            for col in price_columns:
+                if col in new_contract_data.columns:
+                    new_contract_data[col] = new_contract_data[col] + adjustment_amount
+                    
+        return new_contract_data
+        
+    def _fetch_contract_from_quantconnect(self, symbol: str, start_date: datetime,
+                                       end_date: datetime, resolution: str) -> Optional[pd.DataFrame]:
+        """
+        Fetch specific contract data from QuantConnect.
+        
+        Args:
+            symbol: Contract symbol
+            start_date: Start date
+            end_date: End date
+            resolution: Data resolution
+            
+        Returns:
+            DataFrame with contract data
+        """
+        try:
+            # This would be implemented in the actual QuantConnect environment
+            print(f"Would fetch {symbol} from QuantConnect: {start_date.date()} to {end_date.date()} at {resolution}")
+            return None
+            
+        except Exception as e:
+            print(f"Error fetching {symbol} from QuantConnect: {e}")
+            return None
 
 
 # Utility functions for MNQ data management
 def create_sample_mnq_data(start_date: datetime, end_date: datetime,
-                          frequency: str = "1min") -> pd.DataFrame:
+                          frequency: str = "1min", 
+                          include_contracts: bool = True) -> pd.DataFrame:
     """
     Create sample MNQ data for testing purposes.
     
@@ -524,12 +808,19 @@ def create_sample_mnq_data(start_date: datetime, end_date: datetime,
         start_date: Start date for sample data
         end_date: End date for sample data
         frequency: Data frequency
+        include_contracts: Whether to include contract rolling information
         
     Returns:
         DataFrame with sample OHLCV data
     """
     # Create date range
-    date_range = pd.date_range(start=start_date, end=end_date, freq=frequency)
+    # Convert frequency string to pandas format
+    freq_map = {
+        "1min": "1min", "5min": "5min", "15min": "15min", "30min": "30min",
+        "1hour": "1h", "4hour": "4h", "1day": "1D"
+    }
+    pandas_freq = freq_map.get(frequency, "1h")  # Default to 1h
+    date_range = pd.date_range(start=start_date, end=end_date, freq=pandas_freq)
     
     # Filter for trading hours (9:30 AM - 4:00 PM EST, Monday-Friday)
     trading_hours = date_range[
@@ -551,6 +842,11 @@ def create_sample_mnq_data(start_date: datetime, end_date: datetime,
     # Add some volatility
     volatility = np.random.uniform(10, 50, len(trading_hours))
     
+    # Generate contract information if requested
+    contracts = []
+    if include_contracts:
+        contracts = generate_mnq_contracts(start_date.year, end_date.year)
+    
     # Generate OHLC data
     data = []
     for i, (timestamp, close_price) in enumerate(zip(trading_hours, prices)):
@@ -571,13 +867,25 @@ def create_sample_mnq_data(start_date: datetime, end_date: datetime,
         hour_multiplier = 1.5 if 10 <= timestamp.hour <= 14 else 1.0
         volume = int(base_volume * hour_multiplier * np.random.uniform(0.5, 2.0))
         
-        data.append({
+        row_data = {
             'open': round(open_price, 2),
             'high': round(high_price, 2),
             'low': round(low_price, 2),
             'close': round(close_price, 2),
             'volume': volume
-        })
+        }
+        
+        # Add contract information if requested
+        if include_contracts:
+            current_contract = None
+            for contract in contracts:
+                if not contract.is_expired(timestamp) and not contract.should_roll(timestamp, 5):
+                    current_contract = contract.get_full_symbol()
+                    break
+                    
+            row_data['contract'] = current_contract or 'MNQ'
+            
+        data.append(row_data)
         
     df = pd.DataFrame(data, index=trading_hours)
     return df
@@ -604,26 +912,26 @@ def validate_mnq_symbol(symbol: str) -> bool:
     return any(re.match(pattern, symbol.upper()) for pattern in valid_patterns)
 
 
-def get_contract_months() -> Dict[str, str]:
+def get_contract_months() -> Dict[str, int]:
     """
     Get MNQ contract month codes.
     
     Returns:
-        Dictionary mapping month codes to month names
+        Dictionary mapping month codes to month numbers
     """
     return {
-        'F': 'January',
-        'G': 'February',
-        'H': 'March',
-        'J': 'April',
-        'K': 'May',
-        'M': 'June',
-        'N': 'July',
-        'Q': 'August',
-        'U': 'September',
-        'V': 'October',
-        'X': 'November',
-        'Z': 'December'
+        'F': 1,
+        'G': 2,
+        'H': 3,
+        'J': 4,
+        'K': 5,
+        'M': 6,
+        'N': 7,
+        'Q': 8,
+        'U': 9,
+        'V': 10,
+        'X': 11,
+        'Z': 12
     }
 
 
@@ -640,3 +948,256 @@ def get_trading_hours() -> Dict[str, Tuple[int, int]]:
         'after_hours': (16, 20),   # 4:00 PM - 8:00 PM EST
         'overnight': (20, 24)      # 8:00 PM - 12:00 AM EST
     }
+
+
+def generate_mnq_contracts(start_year: int, end_year: int) -> List[FuturesContract]:
+    """
+    Generate MNQ futures contracts for a range of years.
+    
+    Args:
+        start_year: Starting year
+        end_year: Ending year
+        
+    Returns:
+        List of MNQ futures contracts
+    """
+    contracts = []
+    contract_months = ['H', 'M', 'U', 'Z']  # March, June, September, December
+    month_mapping = get_contract_months()
+    
+    for year in range(start_year, end_year + 1):
+        for month_code in contract_months:
+            month_number = month_mapping[month_code]
+            expiry_date = get_third_friday(year, month_number)
+            
+            contract = FuturesContract(
+                symbol="MNQ",
+                contract_month=f"{month_code}{str(year)[-2:]}",
+                expiry_date=expiry_date,
+                roll_date=expiry_date - timedelta(days=5)  # Roll 5 days before expiry
+            )
+            contracts.append(contract)
+            
+    return contracts
+
+
+def get_third_friday(year: int, month: int) -> datetime:
+    """
+    Calculate the third Friday of a given month and year.
+    
+    Args:
+        year: Year
+        month: Month
+        
+    Returns:
+        Third Friday datetime
+    """
+    # Find the first day of the month
+    first_day = datetime(year, month, 1)
+    
+    # Find the first Friday
+    days_until_friday = (4 - first_day.weekday()) % 7
+    first_friday = first_day + timedelta(days=days_until_friday)
+    
+    # Add 14 days to get the third Friday
+    third_friday = first_friday + timedelta(days=14)
+    
+    return third_friday
+
+
+def calculate_rolling_ratio(old_price: float, new_price: float) -> float:
+    """
+    Calculate rolling ratio for contract adjustment.
+    
+    Args:
+        old_price: Price of old contract
+        new_price: Price of new contract
+        
+    Returns:
+        Rolling ratio
+    """
+    if old_price == 0:
+        return 1.0
+    return new_price / old_price
+
+
+def calculate_rolling_difference(old_price: float, new_price: float) -> float:
+    """
+    Calculate rolling difference for contract adjustment.
+    
+    Args:
+        old_price: Price of old contract
+        new_price: Price of new contract
+        
+    Returns:
+        Rolling difference
+    """
+    return new_price - old_price
+
+
+def get_current_mnq_contract(current_date: Optional[datetime] = None) -> Optional[FuturesContract]:
+    """
+    Get the current active MNQ contract.
+    
+    Args:
+        current_date: Current date (defaults to now)
+        
+    Returns:
+        Current active contract or None
+    """
+    if current_date is None:
+        current_date = datetime.now()
+        
+    # Generate contracts for the current and next year
+    contracts = generate_mnq_contracts(current_date.year, current_date.year + 1)
+    
+    # Find the contract that's currently active
+    for contract in contracts:
+        if not contract.is_expired(current_date) and not contract.should_roll(
+            current_date, 5  # 5 days before expiry
+        ):
+            return contract
+            
+    return None
+
+
+def get_next_mnq_contract(current_date: Optional[datetime] = None) -> Optional[FuturesContract]:
+    """
+    Get the next MNQ contract (the one to roll into).
+    
+    Args:
+        current_date: Current date (defaults to now)
+        
+    Returns:
+        Next contract or None
+    """
+    if current_date is None:
+        current_date = datetime.now()
+        
+    # Generate contracts for the current and next year
+    contracts = generate_mnq_contracts(current_date.year, current_date.year + 1)
+    
+    # Find the current contract first
+    current_contract = get_current_mnq_contract(current_date)
+    
+    if current_contract is None:
+        return None
+        
+    # Find the next contract in the series
+    for i, contract in enumerate(contracts):
+        if contract.contract_month == current_contract.contract_month:
+            if i + 1 < len(contracts):
+                return contracts[i + 1]
+            break
+            
+    return None
+
+
+def create_continuous_contract_data(contracts: List[FuturesContract], 
+                                 data_getter: callable) -> pd.DataFrame:
+    """
+    Create continuous contract data from individual contracts.
+    
+    Args:
+        contracts: List of contracts in chronological order
+        data_getter: Function to get data for a contract (symbol, start, end) -> DataFrame
+        
+    Returns:
+        Continuous contract DataFrame
+    """
+    if not contracts:
+        return pd.DataFrame()
+        
+    contract_data_list = []
+    
+    for i, contract in enumerate(contracts):
+        # Get data for this contract
+        start_date = contract.roll_date or contract.expiry_date - timedelta(days=30)
+        end_date = contract.expiry_date
+        
+        try:
+            contract_data = data_getter(contract.get_full_symbol(), start_date, end_date)
+            
+            if contract_data is not None and not contract_data.empty:
+                # Apply rolling adjustments if not the first contract
+                if i > 0:
+                    # Calculate adjustment factor from overlapping period
+                    adjustment_factor = calculate_adjustment_factor(
+                        contract_data_list[-1], contract_data
+                    )
+                    contract_data = apply_adjustment(contract_data, adjustment_factor)
+                    
+                contract_data_list.append(contract_data)
+                
+        except Exception as e:
+            print(f"Error getting data for {contract.get_full_symbol()}: {e}")
+            continue
+            
+    if not contract_data_list:
+        return pd.DataFrame()
+        
+    # Combine all contract data
+    continuous_data = pd.concat(contract_data_list, ignore_index=False)
+    continuous_data = continuous_data.sort_index()
+    
+    # Remove duplicates
+    continuous_data = continuous_data[~continuous_data.index.duplicated(keep='first')]
+    
+    return continuous_data
+
+
+def calculate_adjustment_factor(old_data: pd.DataFrame, new_data: pd.DataFrame) -> float:
+    """
+    Calculate adjustment factor for contract rolling.
+    
+    Args:
+        old_data: Data from old contract
+        new_data: Data from new contract
+        
+    Returns:
+        Adjustment factor
+    """
+    # Find overlapping period
+    overlap_start = max(old_data.index.min(), new_data.index.min())
+    overlap_end = min(old_data.index.max(), new_data.index.max())
+    
+    if overlap_start >= overlap_end:
+        return 1.0  # No overlap, use default
+        
+    # Get overlapping data
+    old_overlap = old_data.loc[overlap_start:overlap_end]
+    new_overlap = new_data.loc[overlap_start:overlap_end]
+    
+    if old_overlap.empty or new_overlap.empty:
+        return 1.0
+        
+    # Calculate ratio using closing prices
+    old_close = old_overlap['close'].mean()
+    new_close = new_overlap['close'].mean()
+    
+    if old_close == 0:
+        return 1.0
+        
+    return new_close / old_close
+
+
+def apply_adjustment(data: pd.DataFrame, adjustment_factor: float) -> pd.DataFrame:
+    """
+    Apply adjustment factor to contract data.
+    
+    Args:
+        data: Contract data
+        adjustment_factor: Adjustment factor
+        
+    Returns:
+        Adjusted data
+    """
+    adjusted_data = data.copy()
+    
+    # Apply to price columns
+    price_columns = ['open', 'high', 'low', 'close']
+    for col in price_columns:
+        if col in adjusted_data.columns:
+            adjusted_data[col] = adjusted_data[col] * adjustment_factor
+            
+    return adjusted_data
