@@ -1,0 +1,56 @@
+============================================================
+FUTURES TRADING STRATEGY PERFORMANCE REPORT
+============================================================
+
+PERFORMANCE METRICS:
+------------------------------
+Total Return: 17.89%
+Annual Return: 3.61%
+Volatility: 3.08%
+Sharpe Ratio: 0.516
+Sortino Ratio: 0.548
+Calmar Ratio: 0.895
+Maximum Drawdown: -4.03%
+Profit Factor: 123.64%
+Win Rate: 53.04%
+Avg Win Loss Ratio: 109.48%
+Var 95: -0.25%
+Cvar 95: -0.41%
+
+STATISTICAL SIGNIFICANCE:
+------------------------------
+T-test vs Zero: Significant (p=0.0122)
+Return Distribution: Not Normal (p=0.0000)
+
+1-MINUTE RESOLUTION METRICS:
+------------------------------
+High-Frequency Statistics:
+  Total Minutes Analyzed: 1,170
+  Positive Minutes: 620 (53.0%)
+  Negative Minutes: 549 (46.9%)
+  Max Minute Gain: 0.009996
+  Max Minute Loss: -0.009248
+  Max Consecutive Positive Minutes: 9
+  Max Consecutive Negative Minutes: 8
+
+Best Performing Time:
+  Time: 10:57
+  Sharpe: 29.618
+  Mean Return: 0.000537
+Worst Performing Time:
+  Time: 14:39
+  Sharpe: -18.322
+  Mean Return: -0.000242
+
+Session Performance:
+  Regular Session:
+    Annual Return: 1400.94%
+    Sharpe Ratio: 0.073
+    Win Rate: 52.99%
+    Volatility: 0.19%
+
+INDUSTRY STANDARDS COMPARISON:
+------------------------------
+Sharpe Ratio Rating: Poor
+Maximum Drawdown Rating: Excellent
+Profit Factor Rating: Poor

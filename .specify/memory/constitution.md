@@ -1,50 +1,76 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# QuantConnect MNQ Futures Trading Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Real Data Only (NON-NEGOTIABLE)
+All testing must use real MNQ (Micro E-mini Nasdaq-100) futures market data; No simulated or synthetic data permitted; Historical data must be from official exchange sources; Tick-level data required for high-frequency strategies
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Environment Parity
+Backtesting, paper trading, and live trading environments must be identical; Same data feeds, same execution logic, same risk management; Any divergence between environments is a critical bug; Paper trading must use real-time market data
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Risk-First Development
+All strategies must implement comprehensive risk management before any profit logic; Position sizing, stop-losses, and drawdown limits mandatory; Maximum daily loss limits enforced; No strategy may risk more than 2% per trade
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. QuantConnect Framework Compliance
+All code must follow QuantConnect API patterns and best practices; Use LEAN algorithm framework exclusively; Custom data handlers must extend QC base classes; No bypassing built-in risk or portfolio management
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Performance & Latency Requirements
+Backtesting must complete within 10x real-time duration; Paper trading latency under 100ms; Live trading execution under 50ms; Memory usage optimized for tick data processing
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Infrastructure Requirements
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Data Management
+- MNQ futures data from CME only
+- Tick-level resolution for backtesting
+- Real-time streaming for paper/live trading
+- Data validation and quality checks mandatory
+- Backup data sources for redundancy
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### Execution Environment
+- QuantConnect Cloud for backtesting
+- Dedicated paper trading account with real broker
+- Live trading only after 30+ days profitable paper trading
+- Automated deployment pipelines
+- Real-time monitoring and alerting
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### Security & Compliance
+- API keys encrypted and rotated monthly
+- Two-factor authentication required
+- Audit trails for all trades
+- Compliance with CME regulations
+- No hardcoded credentials in code
+
+## Development Workflow
+
+### Strategy Development
+1. Research phase: Backtest with 2+ years of MNQ data
+2. Validation: Forward testing on unseen data
+3. Paper trading: Minimum 30 days with real-time data
+4. Live deployment: Gradual position sizing increase
+5. Monitoring: Continuous performance tracking
+
+### Testing Requirements
+- Unit tests for all strategy components
+- Integration tests with QuantConnect API
+- Regression tests on strategy parameters
+- Performance benchmarks for latency
+- Risk management stress tests
+
+### Code Review Process
+- All code changes require peer review
+- Risk management logic review mandatory
+- Performance impact assessment required
+- Documentation updates enforced
+- Compliance verification before deployment
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices. Amendments require:
+- Written proposal with impact analysis
+- Team consensus (75% approval)
+- Migration plan for existing strategies
+- Updated documentation and training
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+All PRs must verify compliance with this constitution. Complexity must be justified with performance or risk benefits. Use QuantConnect documentation for runtime development guidance.
+
+**Version**: 1.0.0 | **Ratified**: 2025-10-20 | **Last Amended**: 2025-10-20

@@ -1,0 +1,434 @@
+openapi: 3.0.3
+info:
+  title: FVG Confluence Trading Strategy API
+  description: API for Fair Value Gap confluence trading strategy research and execution
+  version: 1.0.0
+
+paths:
+  /fvg/detect:
+    post:
+      summary: Detect Fair Value Gaps across multiple timeframes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                  example: "MNQ"
+                start_time:
+                  type: string
+                  format: date-time
+                end_time:
+                  type: string
+                  format: date-time
+                timeframes:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 60
+                  example: [1, 5, 15, 30, 60]
+                volume_threshold:
+                  type: number
+                  minimum: 1
+                  default: 2.0
+                  description: Volume anomaly multiplier
+      responses:
+        '200':
+          description: FVG detection results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fvgs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FairValueGap'
+                  confluence_scores:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfluenceScore'
+
+  /confluence/analyze:
+    post:
+      summary: Analyze confluence across multiple timeframes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fvgs:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FairValueGap'
+                volume_data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/VolumeData'
+      responses:
+        '200':
+          description: Confluence analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confluence_areas:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfluenceScore'
+
+  /trades/setups:
+    get:
+      summary: Get current trade setups
+      parameters:
+        - name: min_confidence
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.7
+        - name: max_risk
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            default: 1000
+      responses:
+        '200':
+          description: Available trade setups
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  setups:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TradeSetup'
+
+  /performance/metrics:
+    get:
+      summary: Get strategy performance metrics
+      parameters:
+        - name: period_start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: period_end
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Performance metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metrics:
+                    $ref: '#/components/schemas/PerformanceMetrics'
+
+  /backtest/run:
+    post:
+      summary: Run strategy backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                initial_capital:
+                  type: number
+                  minimum: 10000
+                  default: 100000
+                parameters:
+                  type: object
+                  properties:
+                    volume_threshold:
+                      type: number
+                      default: 2.0
+                    min_confluence_score:
+                      type: number
+                      default: 70
+                    max_daily_trades:
+                      type: integer
+                      default: 20
+      responses:
+        '200':
+          description: Backtest results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  performance:
+                    $ref: '#/components/schemas/PerformanceMetrics'
+                  trades:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TradeSetup'
+
+components:
+  schemas:
+    FairValueGap:
+      type: object
+      required:
+        - id
+        - type
+        - timeframe
+        - timestamp
+        - high_price
+        - low_price
+        - gap_size
+      properties:
+        id:
+          type: string
+          example: "2024-01-15T10:30_15_bullish"
+        type:
+          type: string
+          enum: [bullish, bearish]
+        timeframe:
+          type: integer
+          minimum: 1
+          maximum: 60
+          example: 15
+        timestamp:
+          type: string
+          format: date-time
+        high_price:
+          type: number
+          example: 15250.25
+        low_price:
+          type: number
+          example: 15248.75
+        gap_size:
+          type: number
+          minimum: 0
+          example: 1.5
+        is_filled:
+          type: boolean
+          default: false
+        fill_time:
+          type: string
+          format: date-time
+          nullable: true
+        volume_at_formation:
+          type: number
+          minimum: 0
+          example: 2500
+        volume_anomaly_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.85
+
+    ConfluenceScore:
+      type: object
+      required:
+        - id
+        - price_level
+        - timestamp
+        - timeframe_count
+        - weighted_score
+      properties:
+        id:
+          type: string
+          example: "confluence_2024-01-15T10:30_15250"
+        price_level:
+          type: number
+          example: 15250.0
+        timestamp:
+          type: string
+          format: date-time
+        timeframe_count:
+          type: integer
+          minimum: 1
+          maximum: 60
+          example: 8
+        weighted_score:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 85.5
+        volume_confirmation:
+          type: boolean
+          example: true
+        volume_weight:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.3
+        timeframe_weights:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            "1": 0.1
+            "5": 0.15
+            "15": 0.25
+            "30": 0.3
+            "60": 0.2
+
+    TradeSetup:
+      type: object
+      required:
+        - id
+        - confluence_id
+        - timestamp
+        - entry_price
+        - stop_loss_price
+        - target_price
+        - direction
+        - risk_amount
+        - potential_reward
+        - confidence_score
+      properties:
+        id:
+          type: string
+          example: "trade_2024-01-15T10:30_long"
+        confluence_id:
+          type: string
+          example: "confluence_2024-01-15T10:30_15250"
+        timestamp:
+          type: string
+          format: date-time
+        entry_price:
+          type: number
+          example: 15249.5
+        stop_loss_price:
+          type: number
+          example: 15247.0
+        target_price:
+          type: number
+          example: 15255.0
+        direction:
+          type: string
+          enum: [long, short]
+          example: long
+        risk_amount:
+          type: number
+          minimum: 0
+          example: 500
+        potential_reward:
+          type: number
+          minimum: 0
+          example: 1100
+        risk_reward_ratio:
+          type: number
+          minimum: 0
+          example: 2.2
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.85
+        timeframe_signals:
+          type: array
+          items:
+            type: integer
+          example: [5, 15, 30, 60]
+        volume_profile_poc:
+          type: number
+          example: 15250.25
+
+    VolumeData:
+      type: object
+      required:
+        - timestamp
+        - volume
+        - average_volume
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        volume:
+          type: number
+          minimum: 0
+          example: 3000
+        average_volume:
+          type: number
+          minimum: 0
+          example: 1500
+        volume_ratio:
+          type: number
+          minimum: 0
+          example: 2.0
+
+    PerformanceMetrics:
+      type: object
+      required:
+        - id
+        - period_start
+        - period_end
+        - total_trades
+        - win_rate
+        - profit_factor
+        - max_drawdown
+        - sharpe_ratio
+      properties:
+        id:
+          type: string
+          example: "perf_2024-01_Q1"
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        total_trades:
+          type: integer
+          minimum: 0
+          example: 125
+        winning_trades:
+          type: integer
+          minimum: 0
+          example: 68
+        losing_trades:
+          type: integer
+          minimum: 0
+          example: 57
+        win_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.544
+        profit_factor:
+          type: number
+          minimum: 0
+          example: 1.45
+        max_drawdown:
+          type: number
+          minimum: 0
+          example: 0.12
+        sharpe_ratio:
+          type: number
+          example: 1.65
+        average_trade_duration:
+          type: number
+          minimum: 0
+          example: 2.5
+        total_return:
+          type: number
+          example: 0.18
+        volatility:
+          type: number
+          minimum: 0
+          example: 0.08
