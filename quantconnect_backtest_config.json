@@ -1,0 +1,29 @@
+{
+  "algorithm_name": "MNQ_FVG_1_60min_Optimization_YTD2025",
+  "algorithm_id": null,
+  "backtest_settings": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-10-21",
+    "initial_cash": 100000,
+    "resolution": "Minute",
+    "universe": "MNQ Futures",
+    "leverage": 3.2,
+    "commission": 0.5,
+    "slippage": 0.25
+  },
+  "optimization_parameters": {
+    "stop_loss_ticks": 3,
+    "take_profit_ticks": 6,
+    "max_hold_time_minutes": 60,
+    "volume_anomaly_threshold": 2.0,
+    "min_confluence_score": 0.3
+  },
+  "performance_targets": {
+    "target_hold_time_min": 1,
+    "target_hold_time_max": 60,
+    "target_win_rate": 0.48,
+    "target_profit_factor": 1.2,
+    "max_drawdown_target": 5000,
+    "target_trades_per_day": 3
+  }
+}
