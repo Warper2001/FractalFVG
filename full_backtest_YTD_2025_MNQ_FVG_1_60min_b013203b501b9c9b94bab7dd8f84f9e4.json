@@ -1,0 +1,1 @@
+meta=None content=[TextContent(type='text', text='{"status":"error","error":"Failed to read backtest: 0","project_id":25761209,"backtest_id":"b013203b501b9c9b94bab7dd8f84f9e4"}', annotations=None, meta=None)] structuredContent={'status': 'error', 'error': 'Failed to read backtest: 0', 'project_id': 25761209, 'backtest_id': 'b013203b501b9c9b94bab7dd8f84f9e4'} isError=False

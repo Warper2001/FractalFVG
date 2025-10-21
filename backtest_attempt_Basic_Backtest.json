@@ -1,0 +1,4 @@
+Error calling tool 'create_backtest': 1 validation error for call[create_backtest]
+backtestName
+  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='Basic_Backtest', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/unexpected_keyword_argument

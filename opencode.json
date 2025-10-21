@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "z_ai": {
+      "npm": "@ai-sdk/anthropic-compatible",
+      "options": {
+        "baseURL": "https://open.bigmodel.cn/api/paas/v4"
+      },
+      "models": {
+        "glm-4.6": {}
+      }
+    }
+  },
+  "autoshare": false,
+  "autoupdate": true,
+  "mcp": {
+    "quantconnect": {
+      "type": "local",
+      "command": ["/root/AlgoTraderSpec/quantconnect-mcp-env/bin/quantconnect-mcp"],
+      "enabled": true,
+      "environment": {
+        "QUANTCONNECT_USER_ID": "421529",
+        "QUANTCONNECT_ACCESS_TOKEN": "c2cddb1ec44679f4edffaa3d9428e915aad02ded3a6574f0ea1e4c0e15fff34f",
+        "QUANTCONNECT_PROJECT_ID": "25233318"
+      }
+    }
+  }
+}
