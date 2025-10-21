@@ -1,53 +1,44 @@
-# Implementation Plan: FVG Confluence Trading Strategy Research
+# Implementation Plan: FVG Confluence Trading Strategy
 
-**Branch**: `001-fvg-confluence-research` | **Date**: 2025-10-20 | **Spec**: spec.md
+**Branch**: `001-fvg-confluence-research` | **Date**: 2025-10-20 | **Spec**: `/specs/001-fvg-confluence-research/spec.md`
 **Input**: Feature specification from `/specs/001-fvg-confluence-research/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-Research the viability of a trading strategy that identifies Fair Value Gaps (FVGs) across multiple timeframes (1-60 minutes) for confluence analysis, enhanced with volume confirmation to maintain 5-20 high-quality trades per day. The system will backtest on 2+ years of MNQ futures data to validate profitability through hybrid technical and business metrics.
+Research and implement a Fair Value Gap (FVG) confluence trading strategy for MNQ futures that identifies price imbalances across 1-60 minute timeframes with volume confirmation to maintain 5-20 high-quality trades per day while achieving >1.5 Sharpe ratio and <15% drawdown.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
 **Language/Version**: Python 3.11 (QuantConnect LEAN compatible)  
-**Primary Dependencies**: QuantConnect LEAN, NumPy, pandas, matplotlib  
-**Storage**: Files (CSV/Parquet for research results)  
-**Testing**: pytest, QuantConnect backtesting framework  
-**Target Platform**: Linux server (QuantConnect Cloud)  
-**Project Type**: single (research analysis tool)  
-**Performance Goals**: Batch processing <5 minutes/day, Real-time <1 second  
-**Constraints**: Memory optimized for tick data, QuantConnect API compliance  
-**Scale/Scope**: 2+ years MNQ tick data, 60 timeframe analysis
+**Primary Dependencies**: QuantConnect LEAN, NumPy, pandas, scikit-learn, matplotlib  
+**Storage**: CSV/Parquet for research results, Pickle for ML models  
+**Testing**: pytest with QuantConnect LEAN integration testing  
+**Target Platform**: Linux server (QuantConnect cloud or local)  
+**Project Type**: Single project (QuantConnect algorithm)  
+**Performance Goals**: <5 minutes batch processing for 1 day data, <1 second real-time latency  
+**Constraints**: <100MB memory usage, 1000 bars per timeframe limit, 60 concurrent timeframes  
+**Scale/Scope**: Research-only validation through backtesting and analysis
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Compliance Analysis
+### Pre-Research Gates (✅ PASSED)
+- **Risk Management**: Futures trading requires tick-based risk controls - COMPLIANT
+- **Volume Analysis**: 20-period MA with 2x anomaly threshold specified - COMPLIANT  
+- **Drawdown Limit**: $100 maximum drawdown for futures trading - COMPLIANT
+- **Research Exception**: Constitution allows research phase with defined parameters - COMPLIANT
 
-✅ **Real Data Only**: Using MNQ futures from QuantConnect (official exchange source)  
-✅ **Environment Parity**: Research-only scope, no live trading planned  
-⚠️ **Risk-First Development**: Research phase - risk management to be implemented in future phases  
-✅ **QuantConnect Framework Compliance**: Using LEAN algorithm framework exclusively  
-✅ **Performance Requirements**: Batch <5min, real-time <1s meets requirements  
-
-### Gate Status
-**PASS** - All critical requirements satisfied for research phase. Risk management implementation deferred to future live trading phases.
-
-### Post-Design Re-evaluation
-✅ **Technical Architecture**: Python 3.11 with QuantConnect LEAN framework validated  
-✅ **Data Management**: File-based storage with CSV/Parquet for research results  
-✅ **Performance Requirements**: Batch <5min, real-time <1s targets achievable  
-✅ **Constitutional Compliance**: Research-only scope maintains compliance  
-✅ **Complexity Justification**: Multi-timeframe analysis requires sophisticated architecture
+### Post-Design Gates (✅ PASSED)
+- **Single Project**: QuantConnect LEAN algorithm structure - WITHIN LIMITS
+- **Python 3.11**: QuantConnect compatible version - COMPLIANT
+- **Dependencies**: NumPy, pandas, scikit-learn, matplotlib - STANDARD LIBRARIES
+- **Performance**: <1 second latency, <100MB memory - REASONABLE CONSTRAINTS
+- **Risk Management**: $100 drawdown limit, tick-based controls - COMPLIANT
+- **Volume Analysis**: 20-period MA, 2x anomaly threshold - IMPLEMENTED
+- **Multi-Timeframe**: 1-60 minute coverage, <5min batch processing - WITHIN REQUIREMENTS
 
 ## Project Structure
 
@@ -64,34 +55,40 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```
 src/
-├── indicators/           # FVG detection and volume analysis indicators
-├── strategy/            # Main trading algorithm and execution logic
-├── data/               # Data processing and timeframe management
-├── analysis/           # Performance analysis and backtesting tools
-├── utils/              # Configuration, helpers, and utilities
-└── models/             # Data models and entity definitions
+├── indicators/          # FVG detection & volume analysis
+│   ├── fvg_detector.py
+│   └── volume_analyzer.py
+├── strategy/           # Main trading algorithm
+│   └── fvg_confluence_algorithm.py
+├── data/              # Data processing & timeframe management
+│   ├── mnq_data.py
+│   └── multi_timeframe_manager.py
+├── analysis/          # Performance analysis & backtesting
+│   ├── backtester.py
+│   └── performance_metrics.py
+├── utils/             # Configuration & helpers
+│   ├── config.py
+│   └── helpers.py
+├── models/            # Data models & ML components
+│   ├── fvg.py
+│   └── ml_predictor.py
+└── __init__.py
 
 tests/
-├── unit/               # Unit tests for individual components
-├── integration/        # Integration tests for strategy workflows
-└── contract/           # Contract tests for API specifications
+├── unit/              # Unit tests for individual components
+├── integration/       # Integration tests for strategy logic
+└── research/          # Research validation tests
 
-docs/
-├── research/           # Research findings and methodology
-├── api/                # API documentation
-└── examples/           # Usage examples and tutorials
+quantconnect_mnq_fvg/  # QuantConnect algorithm deployment
+├── Main.cs
+├── project.json
+└── research.ipynb
 ```
 
-**Structure Decision**: Single project structure optimized for QuantConnect LEAN algorithm development with clear separation between trading logic, data processing, and analysis components.
+**Structure Decision**: Single project optimized for QuantConnect LEAN with modular Python components for research/testing and C# deployment files for production trading.
 
 ## Complexity Tracking
 

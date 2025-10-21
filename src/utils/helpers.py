@@ -180,7 +180,7 @@ def calculate_risk_amount(
     return risk_amount, max(1, position_size)  # Minimum 1 contract
 
 
-def validate_price_data(prices: Union[List[float], "ndarray"]) -> bool:
+def validate_price_data(prices: Union[List[float], Any]) -> bool:
     """Validate price data array"""
     if prices is None or len(prices) < 3:
         return False
@@ -201,7 +201,7 @@ def validate_price_data(prices: Union[List[float], "ndarray"]) -> bool:
     return True
 
 
-def validate_volume_data(volumes: Union[List[int], "ndarray"]) -> bool:
+def validate_volume_data(volumes: Union[List[int], Any]) -> bool:
     """Validate volume data array"""
     if volumes is None or len(volumes) == 0:
         return False
@@ -273,11 +273,36 @@ class PerformanceTimer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end_time = datetime.now()
-        duration = (self.end_time - self.start_time).total_seconds()
-        logging.info(f"{self.operation_name} completed in {duration:.2f} seconds")
+        if self.start_time is not None:
+            duration = (self.end_time - self.start_time).total_seconds()
+            logging.info(f"{self.operation_name} completed in {duration:.2f} seconds")
 
     def get_duration(self) -> float:
         """Get duration in seconds"""
         if self.start_time is not None and self.end_time is not None:
             return (self.end_time - self.start_time).total_seconds()
         return 0.0
+
+
+def validate_timeframe(timeframe: int) -> bool:
+    """Validate timeframe value"""
+    return isinstance(timeframe, int) and 1 <= timeframe <= 60
+
+
+def align_data_to_timeframe(data: List[Any], target_timeframe: int) -> List[Any]:
+    """
+    Align data to target timeframe.
+    
+    Args:
+        data: List of trade bars
+        target_timeframe: Target timeframe in minutes
+        
+    Returns:
+        Aligned data list
+    """
+    if not data:
+        return []
+        
+    # For now, return data as-is
+    # In a full implementation, this would resample/aggregate data
+    return data

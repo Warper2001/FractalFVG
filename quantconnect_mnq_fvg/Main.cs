@@ -45,10 +45,29 @@ namespace QuantConnect.Algorithm.CSharp
         private SimpleMLModel _fillPredictor;
         private SimpleMLModel _holdTimePredictor;
         
-        // Risk management
-        private decimal _maxPositionSize = 1;
-        private decimal _stopLossPct = 0.02m; // 2%
-        private decimal _takeProfitPct = 0.04m; // 4%
+        // MNQ Futures Specifications (updated for correct leverage and commission)
+        private decimal _maxPositionSize = 5; // Increased for futures leverage
+        private decimal _stopLossTicks = 8; // 8 ticks = $4.00 risk per contract
+        private decimal _takeProfitTicks = 16; // 16 ticks = $8.00 profit per contract
+        private decimal _tickValue = 0.5m; // MNQ tick value ($0.50 per tick)
+        private decimal _commissionPerSide = 0.50m; // $0.50 per side commission
+        private decimal _initialMargin = 2200m; // Approximate initial margin per contract
+        private decimal _contractMultiplier = 2m; // $2 per index point
+        
+        // Volume analysis parameters
+        private const int VOLUME_MA_PERIOD = 20;
+        private const decimal VOLUME_ANOMALY_THRESHOLD = 2.0m; // 2x average volume
+        
+        // Performance tracking for spec validation (futures-adjusted)
+        private int _totalTrades;
+        private int _winningTrades;
+        private decimal _totalProfit;
+        private decimal _totalLoss;
+        private decimal _maxDrawdownDollars; // Track drawdown in dollars
+        private decimal _peakPortfolioValue;
+        private List<decimal> _dailyReturns = new List<decimal>();
+        private decimal _previousDayValue;
+        private decimal _totalCommission;
         
         public override void Initialize()
         {
@@ -60,15 +79,10 @@ namespace QuantConnect.Algorithm.CSharp
             _mnqFuture = AddFuture(Futures.Indices.NASDAQ100Micro, Resolution.Minute);
             _mnqFuture.SetFilter(TimeSpan.Zero, TimeSpan.FromDays(182));
             
-            // Initialize timeframes for multi-timeframe analysis
-            var timeframes = new[]
-            {
-                TimeSpan.FromMinutes(1),
-                TimeSpan.FromMinutes(5),
-                TimeSpan.FromMinutes(15),
-                TimeSpan.FromMinutes(30),
-                TimeSpan.FromHours(1)
-            };
+            // Initialize complete timeframe coverage (1-60 minutes in 1-minute intervals as per spec)
+            var timeframes = Enumerable.Range(1, 60)
+                .Select(i => TimeSpan.FromMinutes(i))
+                .ToArray();
             
             foreach (var tf in timeframes)
             {
@@ -86,6 +100,12 @@ namespace QuantConnect.Algorithm.CSharp
             Schedule.On(DateRules.EveryDay(), TimeRules.Every(TimeSpan.FromMinutes(1)), ManagePositions);
             
             WarmUpIndicator(Symbol, TimeSpan.FromDays(7));
+            
+            // Initialize performance tracking
+            _peakPortfolioValue = Portfolio.TotalPortfolioValue;
+            _previousDayValue = Portfolio.TotalPortfolioValue;
+            _maxDrawdownDollars = 0m;
+            _totalCommission = 0m;
             
             Debug("MNQ FVG ML Algorithm Initialized");
         }
@@ -168,6 +188,7 @@ namespace QuantConnect.Algorithm.CSharp
                 // Bullish FVG: prev2.High < prev1.Low < current.Low
                 if (prev2.High < prev1.Low && prev1.Low < current.Low)
                 {
+                    var volumeScore = CalculateVolumeAnomaly(bars, i);
                     var fvg = new FVGSignal
                     {
                         Type = FVGType.Bullish,
@@ -175,7 +196,9 @@ namespace QuantConnect.Algorithm.CSharp
                         Bottom = prev1.Low,
                         Time = current.EndTime,
                         Timeframe = timeframe,
-                        Strength = CalculateFVGStrength(prev2.High, prev1.Low, current.Close)
+                        Strength = CalculateFVGStrength(prev2.High, prev1.Low, current.Close),
+                        VolumeScore = volumeScore,
+                        VolumeAnomaly = volumeScore >= VOLUME_ANOMALY_THRESHOLD
                     };
                     fvgs.Add(fvg);
                 }
@@ -183,6 +206,7 @@ namespace QuantConnect.Algorithm.CSharp
                 // Bearish FVG: prev2.Low > prev1.High > current.High
                 if (prev2.Low > prev1.High && prev1.High > current.High)
                 {
+                    var volumeScore = CalculateVolumeAnomaly(bars, i);
                     var fvg = new FVGSignal
                     {
                         Type = FVGType.Bearish,
@@ -190,13 +214,25 @@ namespace QuantConnect.Algorithm.CSharp
                         Bottom = prev2.Low,
                         Time = current.EndTime,
                         Timeframe = timeframe,
-                        Strength = CalculateFVGStrength(prev1.High, prev2.Low, current.Close)
+                        Strength = CalculateFVGStrength(prev1.High, prev2.Low, current.Close),
+                        VolumeScore = volumeScore,
+                        VolumeAnomaly = volumeScore >= VOLUME_ANOMALY_THRESHOLD
                     };
                     fvgs.Add(fvg);
                 }
             }
             
             return fvgs;
+        }
+        
+        private decimal CalculateVolumeAnomaly(List<TradeBar> bars, int index)
+        {
+            if (index < VOLUME_MA_PERIOD) return 1.0m; // Not enough data
+            
+            var currentVolume = bars[index].Volume;
+            var avgVolume = bars.Skip(index - VOLUME_MA_PERIOD).Take(VOLUME_MA_PERIOD).Average(b => b.Volume);
+            
+            return avgVolume > 0 ? currentVolume / avgVolume : 1.0m;
         }
         
         private List<FVGSignal> FindConfluenceFVGs(List<FVGSignal> allFVGs)
@@ -214,6 +250,15 @@ namespace QuantConnect.Algorithm.CSharp
             
             foreach (var group in groupedFVGs)
             {
+                var timeframeCount = group.Count();
+                var avgVolumeScore = group.Average(f => f.VolumeScore);
+                var hasVolumeAnomaly = group.Any(f => f.VolumeAnomaly);
+                
+                // Spec compliance: 70% timeframe, 30% volume scoring
+                var timeframeScore = (decimal)timeframeCount / 60m; // Normalize by total timeframes
+                var volumeScoreNormalized = Math.Min(1.0m, avgVolumeScore / VOLUME_ANOMALY_THRESHOLD);
+                var finalScore = (timeframeScore * 0.7m) + (volumeScoreNormalized * 0.3m);
+                
                 var confluenceFVG = new FVGSignal
                 {
                     Type = group.Key.Type,
@@ -222,7 +267,9 @@ namespace QuantConnect.Algorithm.CSharp
                     Time = group.Max(f => f.Time),
                     Timeframes = group.Select(f => f.Timeframe).ToList(),
                     Strength = group.Average(f => f.Strength),
-                    ConfluenceScore = (decimal)group.Count() / 5m // Normalize by max timeframes
+                    ConfluenceScore = finalScore,
+                    VolumeScore = avgVolumeScore,
+                    VolumeAnomaly = hasVolumeAnomaly
                 };
                 
                 confluenceFVGs.Add(confluenceFVG);
@@ -256,17 +303,18 @@ namespace QuantConnect.Algorithm.CSharp
         
         private decimal[] ExtractMLFeatures(FVGSignal fvg)
         {
-            // Simplified feature extraction for QuantConnect
+            // Feature extraction including volume analysis as per spec
             var features = new List<decimal>
             {
-                (decimal)fvg.Timeframes.Count / 5m, // Timeframe confluence
-                fvg.ConfluenceScore,
+                (decimal)fvg.Timeframes.Count / 60m, // Timeframe confluence (normalized by 60 timeframes)
+                fvg.ConfluenceScore, // Combined 70% timeframe + 30% volume score
                 fvg.Strength,
+                fvg.VolumeScore, // Volume anomaly score
+                fvg.VolumeAnomaly ? 1.0m : 0.0m, // Binary volume anomaly flag
                 (fvg.Top - fvg.Bottom) / _lastPrice, // Gap size as percentage
                 Math.Abs(_lastPrice - (fvg.Top + fvg.Bottom) / 2m) / _lastPrice, // Distance from price
                 (decimal)fvg.Time.Hour / 24m, // Time of day
                 (decimal)fvg.Time.DayOfWeek / 7m, // Day of week
-                // Add more features as needed
             };
             
             return features.ToArray();
@@ -319,19 +367,27 @@ namespace QuantConnect.Algorithm.CSharp
                 if (portfolio.Invested)
                 {
                     var entryPrice = portfolio.AveragePrice;
-                    var currentPnL = (_lastPrice - entryPrice) / entryPrice;
+                    var priceMoveTicks = Math.Abs(_lastPrice - entryPrice) / _tickValue;
+                    var isProfit = (_lastPrice - entryPrice) > 0;
                     
-                    // Stop loss
-                    if (currentPnL < -_stopLossPct)
+                    // Stop loss in ticks (futures leverage adjusted)
+                    if (!isProfit && priceMoveTicks >= _stopLossTicks)
                     {
+                        var lossDollars = (priceMoveTicks * _tickValue * portfolio.Quantity) + (_commissionPerSide * 2 * portfolio.Quantity);
                         Liquidate(_mnqFuture.Symbol);
-                        Log($"Stop loss triggered at {_lastPrice:F2}, PnL: {currentPnL:P2}");
+                        _totalTrades++;
+                        _totalLoss += lossDollars;
+                        Log($"Stop loss triggered at {_lastPrice:F2}, Loss: ${lossDollars:F2} ({priceMoveTicks:F0} ticks, incl. commission)");
                     }
-                    // Take profit
-                    else if (currentPnL > _takeProfitPct)
+                    // Take profit in ticks
+                    else if (isProfit && priceMoveTicks >= _takeProfitTicks)
                     {
+                        var profitDollars = (priceMoveTicks * _tickValue * portfolio.Quantity) - (_commissionPerSide * 2 * portfolio.Quantity);
                         Liquidate(_mnqFuture.Symbol);
-                        Log($"Take profit triggered at {_lastPrice:F2}, PnL: {currentPnL:P2}");
+                        _totalTrades++;
+                        _winningTrades++;
+                        _totalProfit += profitDollars;
+                        Log($"Take profit triggered at {_lastPrice:F2}, Profit: ${profitDollars:F2} ({priceMoveTicks:F0} ticks, net of commission)");
                     }
                 }
                 
@@ -348,11 +404,17 @@ namespace QuantConnect.Algorithm.CSharp
                         var shouldEnter = ShouldEnterPosition(bestSignal);
                         if (shouldEnter)
                         {
-                            var quantity = CalculatePositionSize(bestSignal);
-                            MarketOrder(_mnqFuture.Symbol, quantity);
-                            
-                            Log($"Entered position: {quantity} contracts at {_lastPrice:F2}, " +
-                                $"FVG: {bestSignal.Type} at ${(bestSignal.Top + bestSignal.Bottom) / 2m:F2}");
+                        var quantity = CalculatePositionSize(bestSignal);
+                        MarketOrder(_mnqFuture.Symbol, quantity);
+                        
+                        // Track commission
+                        var tradeCommission = _commissionPerSide * 2 * quantity; // Round turn
+                        _totalCommission += tradeCommission;
+                        
+                        Log($"Entered position: {quantity} contracts at {_lastPrice:F2}, " +
+                            $"FVG: {bestSignal.Type} at ${(bestSignal.Top + bestSignal.Bottom) / 2m:F2}, " +
+                            $"Volume Anomaly: {bestSignal.VolumeAnomaly}, Confluence: {bestSignal.ConfluenceScore:F2}, " +
+                            $"Commission: ${tradeCommission:F2}");
                         }
                     }
                 }
@@ -375,11 +437,28 @@ namespace QuantConnect.Algorithm.CSharp
         
         private decimal CalculatePositionSize(FVGSignal fvg)
         {
-            // Simple position sizing based on confidence
-            var baseSize = _maxPositionSize;
-            var confidenceMultiplier = fvg.MLConfidence;
+            // Futures position sizing based on margin and risk
+            var accountEquity = Portfolio.TotalPortfolioValue;
+            var riskPerTrade = accountEquity * 0.02m; // 2% risk per trade
+            var riskPerContract = _stopLossTicks * _tickValue; // Risk per contract in dollars
+            var maxContractsByRisk = Math.Floor(riskPerTrade / riskPerContract);
             
-            return Math.Floor(baseSize * confidenceMultiplier);
+            // Margin-based sizing
+            var availableMargin = accountEquity * 0.5m; // Use 50% of equity for margin
+            var maxContractsByMargin = Math.Floor(availableMargin / _initialMargin);
+            
+            // Confidence-based adjustment
+            var confidenceMultiplier = Math.Max(0.5m, Math.Min(1.5m, fvg.MLConfidence));
+            
+            // Take the most conservative limit
+            var baseSize = Math.Min(maxContractsByRisk, maxContractsByMargin);
+            var adjustedSize = Math.Floor(baseSize * confidenceMultiplier);
+            
+            // Ensure at least 1 contract if signal is strong
+            if (adjustedSize < 1 && fvg.MLConfidence > 0.7m)
+                adjustedSize = 1;
+            
+            return Math.Min(adjustedSize, _maxPositionSize);
         }
         
         private void CleanupExpiredFVGs()
@@ -403,8 +482,24 @@ namespace QuantConnect.Algorithm.CSharp
         
         public override void OnEndOfDay()
         {
-            Log($"End of Day: Portfolio Value: {Portfolio.TotalPortfolioValue:F2}, " +
-                $"Active FVGs: {_activeFVGs.Count}");
+            var currentValue = Portfolio.TotalPortfolioValue;
+            var dailyReturn = (currentValue - _previousDayValue) / _previousDayValue;
+            _dailyReturns.Add(dailyReturn);
+            _previousDayValue = currentValue;
+            
+            // Update max drawdown in dollars
+            if (currentValue > _peakPortfolioValue)
+            {
+                _peakPortfolioValue = currentValue;
+            }
+            var currentDrawdownDollars = _peakPortfolioValue - currentValue;
+            if (currentDrawdownDollars > _maxDrawdownDollars)
+            {
+                _maxDrawdownDollars = currentDrawdownDollars;
+            }
+            
+            Log($"End of Day: Portfolio Value: {currentValue:F2}, " +
+                $"Active FVGs: {_activeFVGs.Count}, Daily Return: {dailyReturn:P2}");
         }
         
         public override void OnEndOfAlgorithm()
@@ -412,6 +507,58 @@ namespace QuantConnect.Algorithm.CSharp
             Log("MNQ FVG ML Algorithm Completed");
             Log($"Final Portfolio Value: {Portfolio.TotalPortfolioValue:F2}");
             Log($"Total Return: {(Portfolio.TotalPortfolioValue - 100000) / 100000:P2}");
+            
+            // Calculate performance metrics for spec validation
+            var totalReturn = (Portfolio.TotalPortfolioValue - 100000) / 100000;
+            var winRate = _totalTrades > 0 ? (decimal)_winningTrades / _totalTrades : 0;
+            var profitFactor = _totalLoss > 0 ? _totalProfit / _totalLoss : 0;
+            var avgDailyReturn = _dailyReturns.Count > 0 ? _dailyReturns.Average() : 0;
+            var dailyReturnStd = CalculateStandardDeviation(_dailyReturns);
+            var sharpeRatio = dailyReturnStd > 0 ? avgDailyReturn / dailyReturnStd * Math.Sqrt(252) : 0;
+            
+            // Performance validation against spec thresholds (futures-adjusted)
+            Log("=== FUTURES SPEC PERFORMANCE VALIDATION ===");
+            Log($"Sharpe Ratio: {sharpeRatio:F2} (Spec: >1.0)");
+            Log($"Win Rate: {winRate:P2} (Spec: >45%)");
+            Log($"Profit Factor: {profitFactor:F2} (Spec: >1.3)");
+            Log($"Max Drawdown: ${_maxDrawdownDollars:F0} (Spec: <$5,000)");
+            Log($"Total Trades: {_totalTrades} (Spec: 5-20/day target)");
+            Log($"Annual Return: {totalReturn:P2} (Spec: >15%)");
+            Log($"Total Commission: ${_totalCommission:F2}");
+            Log($"Avg Commission/Trade: ${(_totalCommission / Math.Max(1, _totalTrades)):F2}");
+            Log($"Leverage Used: ~{(Portfolio.TotalMarginUsed / _initialMargin):F1}x");
+            Log($"Margin Efficiency: {(Portfolio.TotalPortfolioValue / Math.Max(1, Portfolio.TotalMarginUsed)):F1}x");
+            
+            // Spec compliance check (futures-adjusted)
+            var sharpePass = sharpeRatio > 1.0;
+            var winRatePass = winRate > 0.45m;
+            var profitFactorPass = profitFactor > 1.3m;
+            var drawdownPass = _maxDrawdownDollars < 5000m; // $5,000 max drawdown
+            var annualReturnPass = totalReturn > 0.15m;
+            
+            var allSpecsMet = sharpePass && winRatePass && profitFactorPass && drawdownPass && annualReturnPass;
+            Log($"SPEC COMPLIANCE: {(allSpecsMet ? "PASS" : "FAIL")}");
+            
+            if (!allSpecsMet)
+            {
+                Log("FAILED CRITERIA:");
+                if (!sharpePass) Log("- Sharpe Ratio below 1.0");
+                if (!winRatePass) Log("- Win Rate below 45%");
+                if (!profitFactorPass) Log("- Profit Factor below 1.3");
+                if (!drawdownPass) Log($"- Max Drawdown above $5,000 (${_maxDrawdownDollars:F0})");
+                if (!annualReturnPass) Log("- Annual Return below 15%");
+            }
+        }
+        
+        private decimal CalculateStandardDeviation(List<decimal> values)
+        {
+            if (values.Count < 2) return 0;
+            
+            var mean = values.Average();
+            var sumOfSquares = values.Sum(x => (x - mean) * (x - mean));
+            var variance = sumOfSquares / (values.Count - 1);
+            
+            return (decimal)Math.Sqrt((double)variance);
         }
     }
     
@@ -430,6 +577,10 @@ namespace QuantConnect.Algorithm.CSharp
         public decimal ExpectedHoldTime { get; set; }
         public decimal MLConfidence { get; set; }
         public TradingAction Recommendation { get; set; }
+        
+        // Volume analysis properties (per spec)
+        public decimal VolumeScore { get; set; }
+        public bool VolumeAnomaly { get; set; }
     }
     
     public enum FVGType

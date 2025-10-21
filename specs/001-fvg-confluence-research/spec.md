@@ -20,6 +20,14 @@
 - Q: How should confluence scoring be weighted? → A: Timeframe-heavy (70% timeframe, 30% volume)
 - Q: How should edge cases be handled? → A: Skip trading during ambiguous conditions
 
+### Session 2025-10-20 (Clarification)
+
+- Q: What benchmark should be used for risk-adjusted return calculations? → A: S&P 500 Index Total Return
+- Q: How should maximum drawdown be measured? → A: Fixed dollar amount ($100)
+- Q: What period should be used for volume anomaly calculation? → A: 20 periods (already specified)
+- Q: When should trades be entered relative to FVG detection? → A: When price enters FVG zone
+- Q: What minimum confluence score threshold should be used for trade consideration? → A: 0.6 (60%)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Multi-Timeframe FVG Detection (Priority: P1)
@@ -78,7 +86,7 @@ As a trading researcher, I want to test the strategy against historical market d
 **Acceptance Scenarios**:
 
 1. **Given** 2+ years of historical MNQ data, **When** the complete strategy is backtested, **Then** it must achieve positive risk-adjusted returns (Sharpe ratio > 1.0)
-2. **Given** backtest results, **When** performance metrics are analyzed, **Then** maximum drawdown must be under 15% and win rate above 45%
+2. **Given** backtest results, **When** performance metrics are analyzed, **Then** maximum drawdown must be under $100 and win rate above 45%
 
 ---
 
@@ -125,13 +133,13 @@ As a trading researcher, I want to test the strategy against historical market d
 
 - **FR-001**: System MUST identify Fair Value Gaps using three-candle imbalance patterns across all timeframes from 1-60 minutes in 1-minute intervals
 - **FR-002**: System MUST calculate confluence scores based on the number of overlapping FVGs across timeframes
-- **FR-003**: System MUST analyze volume patterns at FVG locations and identify anomalies (2x+ average volume)
-- **FR-004**: System MUST combine FVG confluence and volume analysis into a unified scoring mechanism
+- **FR-003**: System MUST analyze volume patterns at FVG locations and identify anomalies (2x+ average volume over 20-period moving average)
+- **FR-004**: System MUST combine FVG confluence and volume analysis into a unified scoring mechanism with minimum 0.6 (60%) threshold for trade consideration
 - **FR-005**: System MUST filter trade opportunities to maintain 5-20 trades per day maximum
 - **FR-006**: System MUST backtest the complete strategy on 2 years of retained MNQ futures tick data
 - **FR-007**: System MUST generate performance metrics including win rate, profit factor, and maximum drawdown
 - **FR-008**: System MUST provide trade-by-trade analysis with entry/exit points and confluence scores
-- **FR-009**: System MUST validate results against minimum profitability threshold of risk-adjusted returns > 1.5x market benchmark and annual return > 15%
+- **FR-009**: System MUST validate results against minimum profitability threshold of risk-adjusted returns > 1.5x S&P 500 Index Total Return and annual return > 15%
 - **FR-010**: System MUST handle edge cases including market gaps, news events, and low-volume periods
 - **FR-011**: System MUST process 1 day of historical data in under 5 minutes for batch analysis
 - **FR-012**: System MUST handle real-time data processing with under 1 second latency
@@ -143,7 +151,7 @@ As a trading researcher, I want to test the strategy against historical market d
 - **Fair Value Gap**: Price imbalance created by three-candle patterns, characterized by gap between high of first candle and low of third (or vice versa)
 - **Confluence Score**: Weighted metric (0-100) combining timeframe alignment strength (70%) and volume confirmation (30%)
 - **Volume Anomaly**: Volume measurement exceeding 2x the 20-period moving average baseline
-- **Trade Setup**: Complete trading opportunity including FVG location, confluence score, volume confirmation, and suggested entry/exit levels
+- **Trade Setup**: Complete trading opportunity including FVG location, confluence score (minimum 0.6), volume confirmation, and entry when price enters FVG zone
 - **Performance Metrics**: Statistical measures including win rate, profit factor, maximum drawdown, risk-adjusted returns, and average trade duration
 
 ## Success Criteria *(mandatory)*
@@ -151,8 +159,8 @@ As a trading researcher, I want to test the strategy against historical market d
 ### Measurable Outcomes
 
 - **SC-001**: Strategy identifies minimum 50 FVG confluence setups per month with volume confirmation
-- **SC-002**: Backtested strategy achieves risk-adjusted returns above 1.0x market benchmark on 2+ years of MNQ data
-- **SC-003**: Maximum drawdown remains below 15% during backtesting period
+- **SC-002**: Backtested strategy achieves risk-adjusted returns above 1.0x S&P 500 Index Total Return on 2+ years of MNQ data
+- **SC-003**: Maximum drawdown remains below $100 during backtesting period
 - **SC-004**: Trade frequency consistently falls within 5-20 trades per day target range
 - **SC-005**: Win rate exceeds 45% with profit factor above 1.3
 - **SC-006**: Volume confirmation improves win rate by minimum 10% compared to FVG-only approach

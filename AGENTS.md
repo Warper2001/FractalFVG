@@ -3,9 +3,9 @@
 Auto-generated from all feature plans. Last updated: 2025-10-20
 
 ## Active Technologies
-- Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, NumPy, pandas (001-fvg-confluence-research)
+- Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, NumPy, pandas, scikit-learn (001-fvg-confluence-research)
 - Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, NumPy, pandas, matplotlib (001-fvg-confluence-research)
-- Files (CSV/Parquet for research results) (001-fvg-confluence-research)
+- Files (CSV/Parquet for research results, Pickle for ML models) (001-fvg-confluence-research)
 
 ## Project Structure
 ```

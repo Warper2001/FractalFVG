@@ -124,5 +124,25 @@ def load_config_from_env():
         config.max_daily_trades = int(max_daily_trades)
 
 
+class TimeframeConfig:
+    """Configuration for timeframe management"""
+    
+    def __init__(self):
+        self.timeframes = list(range(1, 61))  # 1-60 minutes
+        self.max_lookback_periods = 100
+        self.min_periods_required = 3
+        self.data_alignment_tolerance = 1  # minutes
+        
+    def validate(self) -> bool:
+        """Validate timeframe configuration"""
+        if not self.timeframes or len(self.timeframes) == 0:
+            return False
+        if self.max_lookback_periods <= 0:
+            return False
+        if self.min_periods_required <= 0:
+            return False
+        return True
+
+
 # Initialize configuration
 load_config_from_env()

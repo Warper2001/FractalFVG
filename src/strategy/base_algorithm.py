@@ -10,6 +10,18 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
+import logging
+
+# Import new FVG components
+try:
+    from ..data.timeframe_manager import TimeframeManager
+    from ..data.fvg_repository import FVGRepository
+    from ..indicators.fvg_indicator import FairValueGapIndicator
+    from ..utils.config import StrategyConfig, TimeframeConfig
+    NEW_COMPONENTS_AVAILABLE = True
+except ImportError:
+    NEW_COMPONENTS_AVAILABLE = False
+    logging.warning("New FVG components not available - using legacy implementation")
 
 # QuantConnect imports (these will be available in LEAN environment)
 try:
@@ -127,6 +139,19 @@ class FVGConfluenceAlgorithm(QCAlgorithm):
         
         # Research mode flag
         self.research_mode: bool = True  # True for research, False for live trading
+        
+        # Enhanced FVG components (if available)
+        self.timeframe_manager = None
+        self.fvg_repository = None
+        self.fvg_indicators = {}
+        
+        # Configuration
+        self.config = None
+        self.timeframe_config = None
+        
+        # Initialize enhanced components if available
+        if NEW_COMPONENTS_AVAILABLE:
+            self._initialize_enhanced_components()
         
     def Initialize(self) -> None:
         """
@@ -611,3 +636,228 @@ class FVGConfluenceAlgorithm(QCAlgorithm):
         if timeframe is not None:
             return {timeframe: self.price_data.get(timeframe, pd.DataFrame())}
         return self.price_data
+        
+    def _initialize_enhanced_components(self) -> None:
+        """Initialize enhanced FVG components for real-time processing."""
+        try:
+            if not NEW_COMPONENTS_AVAILABLE:
+                return
+                
+            # Initialize configuration
+            self.config = StrategyConfig()
+            self.timeframe_config = TimeframeConfig()
+            
+            # Initialize timeframe manager
+            self.timeframe_manager = TimeframeManager(
+                symbol=str(self.mnq_symbol) if self.mnq_symbol else "MNQ",
+                config=self.timeframe_config
+            )
+            
+            # Initialize FVG repository
+            self.fvg_repository = FVGRepository(
+                max_fvgs_per_timeframe=1000,
+                max_age_hours=24,
+                min_fvg_size=0.25
+            )
+            
+            # Initialize FVG indicators for all timeframes
+            for timeframe in self.timeframes:
+                indicator = FairValueGapIndicator(
+                    name=f"FVG_{timeframe}min",
+                    timeframe=timeframe,
+                    min_fvg_size=0.25,
+                    enable_volume_filter=True,
+                    enable_strength_filter=True,
+                    min_strength_threshold=0.3
+                )
+                self.fvg_indicators[timeframe] = indicator
+                
+            self.Debug("Enhanced FVG components initialized successfully")
+            
+        except Exception as e:
+            self.Error(f"Error initializing enhanced components: {e}")
+            NEW_COMPONENTS_AVAILABLE = False
+            
+    def process_real_time_fvg_detection(self, data: Any) -> None:
+        """
+        Process real-time FVG detection using enhanced components.
+        
+        Args:
+            data: Real-time market data
+        """
+        if not NEW_COMPONENTS_AVAILABLE or not self.timeframe_manager:
+            # Fallback to legacy detection
+            return
+            
+        try:
+            # Add data to timeframe manager
+            for timeframe in self.timeframes:
+                self.timeframe_manager.add_data(data, timeframe)
+                
+            # Process FVG detection for each timeframe
+            for timeframe in self.timeframes:
+                if timeframe in self.fvg_indicators:
+                    indicator = self.fvg_indicators[timeframe]
+                    
+                    # Get latest data for this timeframe
+                    latest_data = self.timeframe_manager.get_latest_data(timeframe, 3)
+                    if latest_data and len(latest_data) >= 3:
+                        # Update indicator with latest data
+                        for bar in latest_data[-3:]:  # Last 3 bars for FVG detection
+                            indicator.Update(bar)
+                            
+                        # Get detected FVGs
+                        active_fvgs = indicator.get_active_fvgs()
+                        
+                        # Add to repository
+                        for fvg in active_fvgs:
+                            fvg_id = self.fvg_repository.add_fvg(fvg)
+                            
+            # Analyze confluence using repository
+            self._analyze_enhanced_confluence()
+            
+        except Exception as e:
+            self.Error(f"Error in real-time FVG detection: {e}")
+            
+    def _analyze_enhanced_confluence(self) -> None:
+        """Analyze FVG confluence using enhanced repository."""
+        if not self.fvg_repository:
+            return
+            
+        try:
+            # Get confluence FVGs
+            confluence_fvgs = self.fvg_repository.get_confluence_fvgs(min_timeframes=3)
+            
+            if confluence_fvgs:
+                high_priority_setups = []
+                
+                for fvg_data, metadata, confluence_timeframes in confluence_fvgs:
+                    setup = {
+                        'time': metadata.creation_time,
+                        'price_level': fvg_data.midpoint,
+                        'fvg_data': fvg_data,
+                        'metadata': metadata,
+                        'confluence_timeframes': confluence_timeframes,
+                        'confluence_count': len(confluence_timeframes),
+                        'priority_score': self._calculate_enhanced_priority_score(fvg_data, metadata, confluence_timeframes)
+                    }
+                    high_priority_setups.append(setup)
+                    
+                # Sort by priority score
+                high_priority_setups.sort(key=lambda x: x['priority_score'], reverse=True)
+                
+                # Store for performance analysis
+                self.performance_metrics['enhanced_setups'] = high_priority_setups
+                
+                if self.research_mode:
+                    self.Debug(f"Found {len(high_priority_setups)} enhanced confluence setups")
+                    
+        except Exception as e:
+            self.Error(f"Error analyzing enhanced confluence: {e}")
+            
+    def _calculate_enhanced_priority_score(self, fvg_data: Any, metadata: Any, confluence_timeframes: List[int]) -> float:
+        """
+        Calculate enhanced priority score for FVG setup.
+        
+        Args:
+            fvg_data: FVG data
+            metadata: FVG metadata
+            confluence_timeframes: List of confluence timeframes
+            
+        Returns:
+            Priority score between 0 and 100
+        """
+        try:
+            # Confluence strength (40% weight)
+            confluence_score = min(len(confluence_timeframes) * 15, 40)
+            
+            # FVG strength (25% weight)
+            strength_score = metadata.strength_score * 25
+            
+            # Volume anomaly (20% weight)
+            volume_score = metadata.volume_anomaly_score * 20
+            
+            # Confidence (15% weight)
+            confidence_score = metadata.confidence_score * 15
+            
+            total_score = confluence_score + strength_score + volume_score + confidence_score
+            return min(total_score, 100)
+            
+        except Exception:
+            return 0.0
+            
+    def get_enhanced_fvg_statistics(self) -> Dict:
+        """Get comprehensive FVG statistics from enhanced components."""
+        if not NEW_COMPONENTS_AVAILABLE or not self.fvg_repository:
+            return {'error': 'Enhanced components not available'}
+            
+        try:
+            stats = {
+                'repository_stats': self.fvg_repository.get_repository_statistics(),
+                'indicator_stats': {},
+                'timeframe_status': {}
+            }
+            
+            # Get indicator statistics
+            for timeframe, indicator in self.fvg_indicators.items():
+                stats['indicator_stats'][timeframe] = indicator.get_fvg_statistics()
+                
+            # Get timeframe manager status
+            if self.timeframe_manager:
+                stats['timeframe_status'] = self.timeframe_manager.get_timeframe_status()
+                
+            return stats
+            
+        except Exception as e:
+            return {'error': f'Error getting enhanced statistics: {e}'}
+            
+    def validate_enhanced_system(self) -> Dict:
+        """Validate the enhanced FVG system integrity."""
+        if not NEW_COMPONENTS_AVAILABLE:
+            return {'error': 'Enhanced components not available'}
+            
+        validation_report = {
+            'is_valid': True,
+            'components_status': {},
+            'issues': [],
+            'warnings': []
+        }
+        
+        try:
+            # Validate repository
+            if self.fvg_repository:
+                repo_validation = self.fvg_repository.validate_repository_integrity()
+                validation_report['components_status']['repository'] = repo_validation
+                if not repo_validation['is_valid']:
+                    validation_report['is_valid'] = False
+                    validation_report['issues'].extend(repo_validation['issues'])
+                validation_report['warnings'].extend(repo_validation['warnings'])
+            else:
+                validation_report['components_status']['repository'] = {'status': 'not_initialized'}
+                
+            # Validate timeframe manager
+            if self.timeframe_manager:
+                timeframe_validation = self.timeframe_manager.validate_timeframe_coverage()
+                validation_report['components_status']['timeframe_manager'] = timeframe_validation
+                if not timeframe_validation['is_fully_covered']:
+                    validation_report['warnings'].append('Not all timeframes fully covered')
+            else:
+                validation_report['components_status']['timeframe_manager'] = {'status': 'not_initialized'}
+                
+            # Validate indicators
+            indicator_count = len(self.fvg_indicators)
+            expected_count = len(self.timeframes)
+            validation_report['components_status']['indicators'] = {
+                'initialized': indicator_count,
+                'expected': expected_count,
+                'coverage': indicator_count / expected_count if expected_count > 0 else 0
+            }
+            
+            if indicator_count < expected_count:
+                validation_report['warnings'].append(f'Only {indicator_count}/{expected_count} indicators initialized')
+                
+        except Exception as e:
+            validation_report['is_valid'] = False
+            validation_report['issues'].append(f'Validation error: {e}')
+            
+        return validation_report

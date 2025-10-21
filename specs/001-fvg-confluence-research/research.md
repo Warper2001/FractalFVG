@@ -1,4 +1,4 @@
-# Research Summary: FVG Confluence Trading Strategy
+# Research Findings: FVG Confluence Trading Strategy
 
 **Date**: 2025-10-20  
 **Feature**: FVG Confluence Trading Strategy Research  
