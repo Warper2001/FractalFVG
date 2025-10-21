@@ -1,0 +1,27 @@
+============================================================
+FVG MODEL RETRAINING REPORT - 1-60 MINUTE OPTIMIZATION
+============================================================
+Training Date: 2025-10-21 02:17:51
+
+FILL PROBABILITY MODEL:
+  RMSE: 0.0241
+  Cross-validated RMSE: 0.0183
+  Average Fill Probability: 71.5%
+
+HOLD TIME PREDICTION MODEL:
+  RMSE: 15.75 minutes
+  5-minute Accuracy: 24.0%
+  10-minute Accuracy: 48.5%
+  Average Hold Time: 22.4 minutes
+
+EXIT REASON CLASSIFICATION:
+  Overall Accuracy: 40.5%
+
+WIN/LOSS PREDICTION:
+  Overall Accuracy: 49.5%
+  Win Precision: 54.2%
+  Baseline Accuracy: 57.6%
+
+============================================================
+MODEL OPTIMIZATION FOR 1-60 MINUTE TRADING COMPLETE
+============================================================
