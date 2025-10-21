@@ -45,14 +45,18 @@ namespace QuantConnect.Algorithm.CSharp
         private SimpleMLModel _fillPredictor;
         private SimpleMLModel _holdTimePredictor;
         
-        // MNQ Futures Specifications (updated for correct leverage and commission)
+        // MNQ Futures Specifications (optimized for 1-60 minute hold times)
         private decimal _maxPositionSize = 5; // Increased for futures leverage
-        private decimal _stopLossTicks = 8; // 8 ticks = $4.00 risk per contract
-        private decimal _takeProfitTicks = 16; // 16 ticks = $8.00 profit per contract
+        private decimal _stopLossTicks = 3; // 3 ticks = $1.50 risk per contract (tight for quick exits)
+        private decimal _takeProfitTicks = 6; // 6 ticks = $3.00 profit per contract (quick target)
         private decimal _tickValue = 0.5m; // MNQ tick value ($0.50 per tick)
         private decimal _commissionPerSide = 0.50m; // $0.50 per side commission
         private decimal _initialMargin = 2200m; // Approximate initial margin per contract
         private decimal _contractMultiplier = 2m; // $2 per index point
+        
+        // Time-based exit parameters for 1-60 minute target
+        private TimeSpan _maxHoldTime = TimeSpan.FromMinutes(60); // Force exit after 60 minutes
+        private TimeSpan _targetHoldTime = TimeSpan.FromMinutes(15); // Optimal target window
         
         // Volume analysis parameters
         private const int VOLUME_MA_PERIOD = 20;
@@ -68,6 +72,10 @@ namespace QuantConnect.Algorithm.CSharp
         private List<decimal> _dailyReturns = new List<decimal>();
         private decimal _previousDayValue;
         private decimal _totalCommission;
+        
+        // Trade timing tracking for 1-60 minute hold time optimization
+        private DateTime? _tradeEntryTime;
+        private List<TimeSpan> _holdTimes = new List<TimeSpan>();
         
         public override void Initialize()
         {
@@ -369,17 +377,46 @@ namespace QuantConnect.Algorithm.CSharp
                     var entryPrice = portfolio.AveragePrice;
                     var priceMoveTicks = Math.Abs(_lastPrice - entryPrice) / _tickValue;
                     var isProfit = (_lastPrice - entryPrice) > 0;
+                    var currentHoldTime = _tradeEntryTime.HasValue ? Time - _tradeEntryTime.Value : TimeSpan.Zero;
                     
-                    // Stop loss in ticks (futures leverage adjusted)
+                    // Time-based exit: Force close after 60 minutes (primary constraint)
+                    if (currentHoldTime >= _maxHoldTime)
+                    {
+                        var timeExitDollars = isProfit ? 
+                            (priceMoveTicks * _tickValue * portfolio.Quantity) - (_commissionPerSide * 2 * portfolio.Quantity) :
+                            (priceMoveTicks * _tickValue * portfolio.Quantity) + (_commissionPerSide * 2 * portfolio.Quantity);
+                        
+                        Liquidate(_mnqFuture.Symbol);
+                        _totalTrades++;
+                        
+                        if (isProfit)
+                        {
+                            _winningTrades++;
+                            _totalProfit += timeExitDollars;
+                            Log($"Time-based profit exit at {_lastPrice:F2}, Profit: ${timeExitDollars:F2}, Hold: {currentHoldTime.TotalMinutes:F0}min");
+                        }
+                        else
+                        {
+                            _totalLoss += timeExitDollars;
+                            Log($"Time-based loss exit at {_lastPrice:F2}, Loss: ${timeExitDollars:F2}, Hold: {currentHoldTime.TotalMinutes:F0}min");
+                        }
+                        _holdTimes.Add(currentHoldTime);
+                        _tradeEntryTime = null;
+                        return;
+                    }
+                    
+                    // Stop loss in ticks (tightened for quick exits)
                     if (!isProfit && priceMoveTicks >= _stopLossTicks)
                     {
                         var lossDollars = (priceMoveTicks * _tickValue * portfolio.Quantity) + (_commissionPerSide * 2 * portfolio.Quantity);
                         Liquidate(_mnqFuture.Symbol);
                         _totalTrades++;
                         _totalLoss += lossDollars;
-                        Log($"Stop loss triggered at {_lastPrice:F2}, Loss: ${lossDollars:F2} ({priceMoveTicks:F0} ticks, incl. commission)");
+                        Log($"Stop loss triggered at {_lastPrice:F2}, Loss: ${lossDollars:F2} ({priceMoveTicks:F0} ticks, {currentHoldTime.TotalMinutes:F0}min hold)");
+                        _holdTimes.Add(currentHoldTime);
+                        _tradeEntryTime = null;
                     }
-                    // Take profit in ticks
+                    // Take profit in ticks (tightened for quick exits)
                     else if (isProfit && priceMoveTicks >= _takeProfitTicks)
                     {
                         var profitDollars = (priceMoveTicks * _tickValue * portfolio.Quantity) - (_commissionPerSide * 2 * portfolio.Quantity);
@@ -387,7 +424,9 @@ namespace QuantConnect.Algorithm.CSharp
                         _totalTrades++;
                         _winningTrades++;
                         _totalProfit += profitDollars;
-                        Log($"Take profit triggered at {_lastPrice:F2}, Profit: ${profitDollars:F2} ({priceMoveTicks:F0} ticks, net of commission)");
+                        Log($"Take profit triggered at {_lastPrice:F2}, Profit: ${profitDollars:F2} ({priceMoveTicks:F0} ticks, {currentHoldTime.TotalMinutes:F0}min hold)");
+                        _holdTimes.Add(currentHoldTime);
+                        _tradeEntryTime = null;
                     }
                 }
                 
@@ -407,6 +446,9 @@ namespace QuantConnect.Algorithm.CSharp
                         var quantity = CalculatePositionSize(bestSignal);
                         MarketOrder(_mnqFuture.Symbol, quantity);
                         
+                        // Record trade entry time for hold time tracking
+                        _tradeEntryTime = Time;
+                        
                         // Track commission
                         var tradeCommission = _commissionPerSide * 2 * quantity; // Round turn
                         _totalCommission += tradeCommission;
@@ -414,7 +456,7 @@ namespace QuantConnect.Algorithm.CSharp
                         Log($"Entered position: {quantity} contracts at {_lastPrice:F2}, " +
                             $"FVG: {bestSignal.Type} at ${(bestSignal.Top + bestSignal.Bottom) / 2m:F2}, " +
                             $"Volume Anomaly: {bestSignal.VolumeAnomaly}, Confluence: {bestSignal.ConfluenceScore:F2}, " +
-                            $"Commission: ${tradeCommission:F2}");
+                            $"Commission: ${tradeCommission:F2}, Target Hold: 1-60min");
                         }
                     }
                 }
@@ -516,7 +558,23 @@ namespace QuantConnect.Algorithm.CSharp
             var dailyReturnStd = CalculateStandardDeviation(_dailyReturns);
             var sharpeRatio = dailyReturnStd > 0 ? avgDailyReturn / dailyReturnStd * Math.Sqrt(252) : 0;
             
+            // Calculate hold time statistics
+            var avgHoldTime = _holdTimes.Count > 0 ? TimeSpan.FromTicks((long)_holdTimes.Average(ht => ht.Ticks)) : TimeSpan.Zero;
+            var minHoldTime = _holdTimes.Count > 0 ? _holdTimes.Min() : TimeSpan.Zero;
+            var maxHoldTime = _holdTimes.Count > 0 ? _holdTimes.Max() : TimeSpan.Zero;
+            var tradesWithinTarget = _holdTimes.Count(ht => ht.TotalMinutes >= 1 && ht.TotalMinutes <= 60);
+            var holdTimeCompliance = _holdTimes.Count > 0 ? (decimal)tradesWithinTarget / _holdTimes.Count : 0;
+
             // Performance validation against spec thresholds (futures-adjusted)
+            Log("=== 1-60 MINUTE HOLD TIME OPTIMIZATION RESULTS ===");
+            Log($"Average Hold Time: {avgHoldTime.TotalMinutes:F1} minutes");
+            Log($"Min Hold Time: {minHoldTime.TotalMinutes:F1} minutes");
+            Log($"Max Hold Time: {maxHoldTime.TotalMinutes:F1} minutes");
+            Log($"Trades within 1-60min: {tradesWithinTarget}/{_holdTimes.Count} ({holdTimeCompliance:P1})");
+            Log($"Stop Loss: {_stopLossTicks} ticks (${_stopLossTicks * _tickValue:F2})");
+            Log($"Take Profit: {_takeProfitTicks} ticks (${_takeProfitTicks * _tickValue:F2})");
+            Log($"Max Forced Exit: {_maxHoldTime.TotalMinutes} minutes");
+            Log("");
             Log("=== FUTURES SPEC PERFORMANCE VALIDATION ===");
             Log($"Sharpe Ratio: {sharpeRatio:F2} (Spec: >1.0)");
             Log($"Win Rate: {winRate:P2} (Spec: >45%)");
