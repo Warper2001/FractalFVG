@@ -15,8 +15,25 @@ import logging
 
 from ..utils.config import StrategyConfig
 from ..utils.helpers import validate_timeframe
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+class VolumeConfirmationLevel(Enum):
+    """
+    Volume confirmation levels for FVG confluence analysis.
+    
+    Levels:
+    - NONE: No volume confirmation (anomaly_multiplier < 1.0)
+    - LOW: Low volume confirmation (1.0 <= anomaly_multiplier < 2.0)
+    - MEDIUM: Medium volume confirmation (2.0 <= anomaly_multiplier < 3.0)
+    - HIGH: High volume confirmation (anomaly_multiplier >= 3.0)
+    """
+    NONE = 0
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
 
 
 class VolumeAnalyzer:
@@ -505,3 +522,48 @@ class VolumeAnalyzer:
         self.reset_statistics()
         
         self.logger.debug("Volume Analyzer cleaned up")
+        
+    def get_volume_confirmation_level(self, volume_analysis: Dict[str, Any]) -> VolumeConfirmationLevel:
+        """
+        Determine volume confirmation level from analysis results.
+        
+        Args:
+            volume_analysis: Results from analyze_volume method
+            
+        Returns:
+            VolumeConfirmationLevel: The confirmation level
+        """
+        if not volume_analysis:
+            return VolumeConfirmationLevel.NONE
+            
+        anomaly_multiplier = volume_analysis.get('anomaly_multiplier', 0.0)
+        volume_percentile = volume_analysis.get('volume_percentile', 0.0)
+        
+        # Use anomaly multiplier as primary criteria
+        if anomaly_multiplier < 1.0:
+            return VolumeConfirmationLevel.NONE
+        elif anomaly_multiplier < 2.0:
+            return VolumeConfirmationLevel.LOW
+        elif anomaly_multiplier < 3.0:
+            return VolumeConfirmationLevel.MEDIUM
+        else:
+            return VolumeConfirmationLevel.HIGH
+            
+    def get_volume_confirmation_score(self, level: VolumeConfirmationLevel) -> float:
+        """
+        Convert volume confirmation level to numeric score.
+        
+        Args:
+            level: Volume confirmation level
+            
+        Returns:
+            float: Normalized score (0.0 to 1.0)
+        """
+        score_mapping = {
+            VolumeConfirmationLevel.NONE: 0.0,
+            VolumeConfirmationLevel.LOW: 0.25,
+            VolumeConfirmationLevel.MEDIUM: 0.5,
+            VolumeConfirmationLevel.HIGH: 1.0
+        }
+        
+        return score_mapping.get(level, 0.0)
