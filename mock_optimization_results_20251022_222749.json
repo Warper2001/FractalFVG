@@ -1,0 +1,530 @@
+{
+  "timestamp": "2025-10-22T22:27:49.139496",
+  "project_id": 25780050,
+  "analysis": {
+    "total_combinations": 24,
+    "combinations_with_trades": 20,
+    "trade_generation_rate": 0.8333333333333334,
+    "best_parameters": {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.5,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_9932",
+      "trades": 24,
+      "win_rate": 0.5038790186144644,
+      "total_return": 0.009880808301911882,
+      "sharpe_ratio": 0.8469632680908079,
+      "max_drawdown": 0.08852793537560365,
+      "profit_factor": 1.2077548006143444
+    },
+    "top_5_results": [
+      {
+        "parameter_set": {
+          "ml_confidence_threshold": 0.5,
+          "volume_anomaly_multiplier": 1.25,
+          "min_confluence_score": 1,
+          "risk_reward_ratio": 2.0,
+          "stop_loss_ticks": 3,
+          "take_profit_ticks": 6
+        },
+        "backtest_id": "mock_20251022_222748_9932",
+        "trades": 24,
+        "win_rate": 0.5038790186144644,
+        "total_return": 0.009880808301911882,
+        "sharpe_ratio": 0.8469632680908079,
+        "max_drawdown": 0.08852793537560365,
+        "profit_factor": 1.2077548006143444
+      },
+      {
+        "parameter_set": {
+          "ml_confidence_threshold": 0.5,
+          "volume_anomaly_multiplier": 1.5,
+          "min_confluence_score": 1,
+          "risk_reward_ratio": 2.0,
+          "stop_loss_ticks": 3,
+          "take_profit_ticks": 6
+        },
+        "backtest_id": "mock_20251022_222749_6601",
+        "trades": 24,
+        "win_rate": 0.4556544038637523,
+        "total_return": 0.02609022102467212,
+        "sharpe_ratio": 0.6234824927749518,
+        "max_drawdown": 0.0923193566557932,
+        "profit_factor": 1.2749496340620186
+      },
+      {
+        "parameter_set": {
+          "ml_confidence_threshold": 0.4,
+          "volume_anomaly_multiplier": 1.75,
+          "min_confluence_score": 1,
+          "risk_reward_ratio": 2.0,
+          "stop_loss_ticks": 3,
+          "take_profit_ticks": 6
+        },
+        "backtest_id": "mock_20251022_222747_2451",
+        "trades": 23,
+        "win_rate": 0.473455121146379,
+        "total_return": -0.006430591568091658,
+        "sharpe_ratio": 0.5725683301451585,
+        "max_drawdown": 0.05390893851423029,
+        "profit_factor": 1.0054715138623558
+      },
+      {
+        "parameter_set": {
+          "ml_confidence_threshold": 0.45,
+          "volume_anomaly_multiplier": 1.5,
+          "min_confluence_score": 1,
+          "risk_reward_ratio": 2.0,
+          "stop_loss_ticks": 3,
+          "take_profit_ticks": 6
+        },
+        "backtest_id": "mock_20251022_222748_5362",
+        "trades": 22,
+        "win_rate": 0.4902802353438348,
+        "total_return": 0.05989751365422884,
+        "sharpe_ratio": 0.623845487288682,
+        "max_drawdown": 0.0557993312117262,
+        "profit_factor": 1.3058665203260098
+      },
+      {
+        "parameter_set": {
+          "ml_confidence_threshold": 0.4,
+          "volume_anomaly_multiplier": 1.25,
+          "min_confluence_score": 1,
+          "risk_reward_ratio": 2.0,
+          "stop_loss_ticks": 3,
+          "take_profit_ticks": 6
+        },
+        "backtest_id": "mock_20251022_222746_1756",
+        "trades": 20,
+        "win_rate": 0.502928176778333,
+        "total_return": 0.11644771530257368,
+        "sharpe_ratio": 0.7759452170034618,
+        "max_drawdown": 0.08207052063857512,
+        "profit_factor": 1.347795158887095
+      }
+    ],
+    "average_trades": 10.65,
+    "average_win_rate": 0.5236385464587064,
+    "average_return": 0.01991993092239221,
+    "improvement_vs_current": {
+      "trade_increase": 24,
+      "return_improvement": 0.009880808301911882
+    }
+  },
+  "all_results": [
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.5,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_9932",
+      "trades": 24,
+      "win_rate": 0.5038790186144644,
+      "total_return": 0.009880808301911882,
+      "sharpe_ratio": 0.8469632680908079,
+      "max_drawdown": 0.08852793537560365,
+      "profit_factor": 1.2077548006143444
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.5,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222749_6601",
+      "trades": 24,
+      "win_rate": 0.4556544038637523,
+      "total_return": 0.02609022102467212,
+      "sharpe_ratio": 0.6234824927749518,
+      "max_drawdown": 0.0923193566557932,
+      "profit_factor": 1.2749496340620186
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_2451",
+      "trades": 23,
+      "win_rate": 0.473455121146379,
+      "total_return": -0.006430591568091658,
+      "sharpe_ratio": 0.5725683301451585,
+      "max_drawdown": 0.05390893851423029,
+      "profit_factor": 1.0054715138623558
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_5362",
+      "trades": 22,
+      "win_rate": 0.4902802353438348,
+      "total_return": 0.05989751365422884,
+      "sharpe_ratio": 0.623845487288682,
+      "max_drawdown": 0.0557993312117262,
+      "profit_factor": 1.3058665203260098
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222746_1756",
+      "trades": 20,
+      "win_rate": 0.502928176778333,
+      "total_return": 0.11644771530257368,
+      "sharpe_ratio": 0.7759452170034618,
+      "max_drawdown": 0.08207052063857512,
+      "profit_factor": 1.347795158887095
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_4937",
+      "trades": 19,
+      "win_rate": 0.4865452464248236,
+      "total_return": 0.018439791877006662,
+      "sharpe_ratio": 0.770647139900789,
+      "max_drawdown": 0.06731744608636409,
+      "profit_factor": 1.330408653088836
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_6840",
+      "trades": 17,
+      "win_rate": 0.5065535201674611,
+      "total_return": 0.10560438531524201,
+      "sharpe_ratio": 0.8060439159092705,
+      "max_drawdown": 0.08842689254849437,
+      "profit_factor": 1.3489025130850902
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.5,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_5660",
+      "trades": 15,
+      "win_rate": 0.5285172591905046,
+      "total_return": 0.035822947972733575,
+      "sharpe_ratio": 0.8228883735800401,
+      "max_drawdown": 0.0499120790020519,
+      "profit_factor": 1.2277187083841872
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222746_4603",
+      "trades": 15,
+      "win_rate": 0.536851698753381,
+      "total_return": -0.005650442816028345,
+      "sharpe_ratio": 0.783124896419458,
+      "max_drawdown": 0.03913712424559157,
+      "profit_factor": 1.2272174823914914
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_4753",
+      "trades": 11,
+      "win_rate": 0.5149736003473283,
+      "total_return": -0.00352568807864406,
+      "sharpe_ratio": 1.1237137581705219,
+      "max_drawdown": 0.04879260222012288,
+      "profit_factor": 1.4199564484273828
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 1,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_7557",
+      "trades": 8,
+      "win_rate": 0.5130571673422899,
+      "total_return": 0.027319453905814632,
+      "sharpe_ratio": 0.7430765284660413,
+      "max_drawdown": 0.06645871292272931,
+      "profit_factor": 1.1484444849155713
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 4,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_9335",
+      "trades": 3,
+      "win_rate": 0.10392683806931435,
+      "total_return": -0.0036339891140197357,
+      "sharpe_ratio": 0.025822493493942278,
+      "max_drawdown": 0.014668957157373503,
+      "profit_factor": 0.7167079964382058
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.5,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222749_9611",
+      "trades": 3,
+      "win_rate": 0.10678527279330163,
+      "total_return": -0.001348490815251855,
+      "sharpe_ratio": -0.4288967204793809,
+      "max_drawdown": 0.02698627415336745,
+      "profit_factor": 0.7038072030098455
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_7993",
+      "trades": 2,
+      "win_rate": 0.7246998231770722,
+      "total_return": -0.0016774803074770107,
+      "sharpe_ratio": -0.05212958252215383,
+      "max_drawdown": 0.011776801746525904,
+      "profit_factor": 0.5217112207231294
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_2782",
+      "trades": 2,
+      "win_rate": 0.5920875722739645,
+      "total_return": 0.0007807790644456837,
+      "sharpe_ratio": -0.06493796944975261,
+      "max_drawdown": 0.013688047664039488,
+      "profit_factor": 0.9068904040459658
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_7419",
+      "trades": 1,
+      "win_rate": 0.9104649786588965,
+      "total_return": 0.0020554741558231346,
+      "sharpe_ratio": 0.24007174232680717,
+      "max_drawdown": 0.01738323592157727,
+      "profit_factor": 0.7122011440347735
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_3528",
+      "trades": 1,
+      "win_rate": 0.6957095938955864,
+      "total_return": 0.003880054419786726,
+      "sharpe_ratio": 0.2060233803234498,
+      "max_drawdown": 0.020561810245189303,
+      "profit_factor": 0.5605933235204928
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_4419",
+      "trades": 1,
+      "win_rate": 0.18698899566151972,
+      "total_return": 0.004891021943621592,
+      "sharpe_ratio": -0.22186232773703907,
+      "max_drawdown": 0.016377126404491002,
+      "profit_factor": 0.8668138977453859
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.25,
+        "min_confluence_score": 5,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_4112",
+      "trades": 1,
+      "win_rate": 0.6707852938932061,
+      "total_return": 0.004878155019799986,
+      "sharpe_ratio": -0.4729077183815428,
+      "max_drawdown": 0.018781408329201343,
+      "profit_factor": 0.5467181096252922
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_1979",
+      "trades": 1,
+      "win_rate": 0.968627112778715,
+      "total_return": 0.004676979189696351,
+      "sharpe_ratio": -0.4877796557360843,
+      "max_drawdown": 0.016275931822697362,
+      "profit_factor": 0.6857743063532515
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.5,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_8027",
+      "trades": 0,
+      "win_rate": 0.0,
+      "total_return": -0.00341610951619801,
+      "sharpe_ratio": 0.22623905991311477,
+      "max_drawdown": 0.01861477036807845,
+      "profit_factor": 0.8072749808270949
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 2,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_5992",
+      "trades": 0,
+      "win_rate": 0.0,
+      "total_return": -0.0034463205847010273,
+      "sharpe_ratio": 0.13550467441433345,
+      "max_drawdown": 0.027103658539382437,
+      "profit_factor": 0.684268599787502
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.45,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222748_3097",
+      "trades": 0,
+      "win_rate": 0.0,
+      "total_return": 0.00038884348126921355,
+      "sharpe_ratio": 0.07883990032336774,
+      "max_drawdown": 0.01601443983337299,
+      "profit_factor": 0.6903279678092361
+    },
+    {
+      "parameter_set": {
+        "ml_confidence_threshold": 0.4,
+        "volume_anomaly_multiplier": 1.75,
+        "min_confluence_score": 3,
+        "risk_reward_ratio": 2.0,
+        "stop_loss_ticks": 3,
+        "take_profit_ticks": 6
+      },
+      "backtest_id": "mock_20251022_222747_9800",
+      "trades": 0,
+      "win_rate": 0.0,
+      "total_return": -0.004809349259036123,
+      "sharpe_ratio": 0.07754620580578375,
+      "max_drawdown": 0.01688011962310492,
+      "profit_factor": 0.6158862456541939
+    }
+  ]
+}

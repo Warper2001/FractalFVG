@@ -58,9 +58,11 @@ namespace QuantConnect.Algorithm.CSharp
         private TimeSpan _maxHoldTime = TimeSpan.FromMinutes(60); // Force exit after 60 minutes
         private TimeSpan _targetHoldTime = TimeSpan.FromMinutes(15); // Optimal target window
         
-        // Enhanced volume analysis parameters (from Python algorithm)
+        // OPTIMIZED parameters based on parameter optimization results
         private const int VOLUME_MA_PERIOD = 20;
-        private const decimal VOLUME_ANOMALY_THRESHOLD = 2.0m; // 2x average volume
+        private const decimal VOLUME_ANOMALY_THRESHOLD = 1.25m; // OPTIMIZED: 1.25x average volume (down from 2.0x)
+        private const decimal ML_CONFIDENCE_THRESHOLD = 0.5m; // OPTIMIZED: 0.5 confidence (down from 0.6+)
+        private const int MIN_CONFLUENCE_SCORE = 1; // OPTIMIZED: Minimum confluence score 1 (down from 3+)
         
         // Volume confirmation tiers (NONE/LOW/MEDIUM/HIGH)
         private const decimal VOLUME_TIER_HIGH_THRESHOLD = 0.4m; // >= 40% volume score
