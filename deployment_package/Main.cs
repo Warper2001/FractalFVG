@@ -58,9 +58,20 @@ namespace QuantConnect.Algorithm.CSharp
         private TimeSpan _maxHoldTime = TimeSpan.FromMinutes(60); // Force exit after 60 minutes
         private TimeSpan _targetHoldTime = TimeSpan.FromMinutes(15); // Optimal target window
         
-        // Volume analysis parameters
+        // Enhanced volume analysis parameters (from Python algorithm)
         private const int VOLUME_MA_PERIOD = 20;
         private const decimal VOLUME_ANOMALY_THRESHOLD = 2.0m; // 2x average volume
+        
+        // Volume confirmation tiers (NONE/LOW/MEDIUM/HIGH)
+        private const decimal VOLUME_TIER_HIGH_THRESHOLD = 0.4m; // >= 40% volume score
+        private const decimal VOLUME_TIER_MEDIUM_THRESHOLD = 0.2m; // >= 20% volume score
+        private const decimal VOLUME_TIER_LOW_THRESHOLD = 0.1m; // >= 10% volume score
+        
+        // Session-aware volume multipliers
+        private const decimal US_SESSION_VOLUME_MULTIPLIER = 2.0m; // US regular session
+        private const decimal OVERNIGHT_VOLUME_MULTIPLIER = 0.3m; // Overnight session
+        private const decimal PRE_MARKET_VOLUME_MULTIPLIER = 0.7m; // Pre-market
+        private const decimal POST_MARKET_VOLUME_MULTIPLIER = 0.5m; // Post-market
         
         // Performance tracking for spec validation (futures-adjusted)
         private int _totalTrades;
@@ -244,7 +255,49 @@ namespace QuantConnect.Algorithm.CSharp
             var currentVolume = bars[index].Volume;
             var avgVolume = bars.Skip(index - VOLUME_MA_PERIOD).Take(VOLUME_MA_PERIOD).Average(b => b.Volume);
             
-            return avgVolume > 0 ? currentVolume / avgVolume : 1.0m;
+            // Apply session-aware volume multiplier
+            var sessionMultiplier = GetSessionVolumeMultiplier(bars[index].EndTime);
+            var adjustedVolume = currentVolume * sessionMultiplier;
+            
+            return avgVolume > 0 ? adjustedVolume / avgVolume : 1.0m;
+        }
+        
+        private decimal GetSessionVolumeMultiplier(DateTime time)
+        {
+            var hour = time.Hour;
+            var dayOfWeek = time.DayOfWeek;
+            
+            // Skip weekends
+            if (dayOfWeek == DayOfWeek.Saturday || dayOfWeek == DayOfWeek.Sunday)
+                return OVERNIGHT_VOLUME_MULTIPLIER;
+            
+            // US regular session: 9:30 AM - 4:00 PM EST
+            if (hour >= 9 && hour < 16)
+                return US_SESSION_VOLUME_MULTIPLIER;
+            
+            // Pre-market: 4:00 AM - 9:30 AM EST
+            else if (hour >= 4 && hour < 9)
+                return PRE_MARKET_VOLUME_MULTIPLIER;
+            
+            // Post-market: 4:00 PM - 8:00 PM EST
+            else if (hour >= 16 && hour < 20)
+                return POST_MARKET_VOLUME_MULTIPLIER;
+            
+            // Overnight: 8:00 PM - 4:00 AM EST
+            else
+                return OVERNIGHT_VOLUME_MULTIPLIER;
+        }
+        
+        private VolumeConfirmationLevel GetVolumeConfirmationLevel(decimal volumeScore)
+        {
+            if (volumeScore >= VOLUME_TIER_HIGH_THRESHOLD)
+                return VolumeConfirmationLevel.HIGH;
+            else if (volumeScore >= VOLUME_TIER_MEDIUM_THRESHOLD)
+                return VolumeConfirmationLevel.MEDIUM;
+            else if (volumeScore >= VOLUME_TIER_LOW_THRESHOLD)
+                return VolumeConfirmationLevel.LOW;
+            else
+                return VolumeConfirmationLevel.NONE;
         }
         
         private List<FVGSignal> FindConfluenceFVGs(List<FVGSignal> allFVGs)
@@ -265,6 +318,17 @@ namespace QuantConnect.Algorithm.CSharp
                 var timeframeCount = group.Count();
                 var avgVolumeScore = group.Average(f => f.VolumeScore);
                 var hasVolumeAnomaly = group.Any(f => f.VolumeAnomaly);
+                var volumeConfirmationLevel = GetVolumeConfirmationLevel(avgVolumeScore);
+                
+                // Enhanced volume confirmation filtering (4-tier system)
+                var passesVolumeFilter = ApplyVolumeConfirmationFilter(
+                    avgVolumeScore, 
+                    timeframeCount, 
+                    volumeConfirmationLevel
+                );
+                
+                if (!passesVolumeFilter)
+                    continue;
                 
                 // Spec compliance: 70% timeframe, 30% volume scoring
                 var timeframeScore = (decimal)timeframeCount / 60m; // Normalize by total timeframes
@@ -281,13 +345,49 @@ namespace QuantConnect.Algorithm.CSharp
                     Strength = group.Average(f => f.Strength),
                     ConfluenceScore = finalScore,
                     VolumeScore = avgVolumeScore,
-                    VolumeAnomaly = hasVolumeAnomaly
+                    VolumeAnomaly = hasVolumeAnomaly,
+                    VolumeConfirmationLevel = volumeConfirmationLevel
                 };
                 
                 confluenceFVGs.Add(confluenceFVG);
             }
             
             return confluenceFVGs;
+        }
+        
+        private bool ApplyVolumeConfirmationFilter(decimal volumeScore, int timeframeCount, VolumeConfirmationLevel volumeLevel)
+        {
+            // Multi-tier volume confirmation criteria (from Python algorithm)
+            
+            // Tier 1: Strong volume confirmation (volume_score >= 0.4)
+            // - Automatic pass regardless of confluence score
+            if (volumeScore >= VOLUME_TIER_HIGH_THRESHOLD)
+            {
+                return true;
+            }
+            
+            // Tier 2: Moderate volume confirmation (0.2 <= volume_score < 0.4)
+            // - Requires at least 5 timeframes
+            if (volumeScore >= VOLUME_TIER_MEDIUM_THRESHOLD && timeframeCount >= 5)
+            {
+                return true;
+            }
+            
+            // Tier 3: Exceptional confluence (7+ timeframes)
+            // - Can pass with minimal volume confirmation (volume_score >= 0.1)
+            if (timeframeCount >= 7 && volumeScore >= VOLUME_TIER_LOW_THRESHOLD)
+            {
+                return true;
+            }
+            
+            // Tier 4: Outstanding confluence (10+ timeframes)
+            // - Can override volume requirement entirely
+            if (timeframeCount >= 10)
+            {
+                return true;
+            }
+            
+            return false;
         }
         
         private List<FVGSignal> ScoreFVGsWithML(List<FVGSignal> fvgs)
@@ -655,6 +755,7 @@ namespace QuantConnect.Algorithm.CSharp
         // Volume analysis properties (per spec)
         public decimal VolumeScore { get; set; }
         public bool VolumeAnomaly { get; set; }
+        public VolumeConfirmationLevel VolumeConfirmationLevel { get; set; }
     }
     
     public enum FVGType
@@ -668,6 +769,14 @@ namespace QuantConnect.Algorithm.CSharp
         Avoid,
         Consider,
         StrongBuy
+    }
+    
+    public enum VolumeConfirmationLevel
+    {
+        NONE,
+        LOW,
+        MEDIUM,
+        HIGH
     }
     
     // Simplified ML model for QuantConnect

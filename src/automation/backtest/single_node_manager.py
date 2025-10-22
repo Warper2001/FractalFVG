@@ -378,18 +378,20 @@ class SingleNodeBacktestManager:
             
             # Import the QuantConnect API functions
             try:
-                from quantconnect_create_backtest import quantconnect_create_backtest
-                
-                # Create backtest using the actual API
-                result = await asyncio.get_event_loop().run_in_executor(
-                    self.executor,
-                    lambda: quantconnect_create_backtest(
-                        project_id=job.project_id,
-                        compile_id=job.compile_id,
-                        backtest_name=job.name,
-                        parameters=job.parameters if job.parameters else None
+                create_backtest_func = globals().get('quantconnect_create_backtest')
+                if create_backtest_func:
+                    # Create backtest using the actual API
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self.executor,
+                        lambda: create_backtest_func(
+                            project_id=job.project_id,
+                            compile_id=job.compile_id,
+                            backtest_name=job.name,
+                            parameters=None
+                        )
                     )
-                )
+                else:
+                    raise NameError("quantconnect_create_backtest not available")
                 
                 if result and 'backtestId' in result:
                     backtest_id = result['backtestId']
@@ -451,20 +453,22 @@ class SingleNodeBacktestManager:
             if not self.api_client or not self.current_job:
                 return []
             
-            # Import the QuantConnect API functions
+            # Use the global QuantConnect API functions
             try:
-                from quantconnect_read_live_logs import quantconnect_read_live_logs
-                
-                # Get console logs using the actual API
-                result = await asyncio.get_event_loop().run_in_executor(
-                    self.executor,
-                    lambda: quantconnect_read_live_logs(
-                        project_id=self.current_job.project_id if self.current_job else 0,
-                        algorithm_id=backtest_id,
-                        start_line=0,
-                        end_line=50
+                read_logs_func = globals().get('quantconnect_read_live_logs')
+                if read_logs_func:
+                    # Get console logs using the actual API
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self.executor,
+                        lambda: read_logs_func(
+                            project_id=self.current_job.project_id if self.current_job else 0,
+                            algorithm_id=backtest_id,
+                            start_line=0,
+                            end_line=50
+                        )
                     )
-                )
+                else:
+                    raise NameError("quantconnect_read_live_logs not available")
                 
                 if result and 'logs' in result:
                     return result['logs']
@@ -520,18 +524,20 @@ class SingleNodeBacktestManager:
             if not job.backtest_id or not self.api_client:
                 return
             
-            # Import the QuantConnect API functions
+            # Use the global QuantConnect API functions
             try:
-                from quantconnect_read_backtest import quantconnect_read_backtest
-                
-                # Get backtest status using the actual API
-                result = await asyncio.get_event_loop().run_in_executor(
-                    self.executor,
-                    lambda: quantconnect_read_backtest(
-                        project_id=job.project_id,
-                        backtest_id=job.backtest_id
+                read_backtest_func = globals().get('quantconnect_read_backtest')
+                if read_backtest_func:
+                    # Get backtest status using the actual API
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self.executor,
+                        lambda: read_backtest_func(
+                            project_id=job.project_id,
+                            backtest_id=job.backtest_id
+                        )
                     )
-                )
+                else:
+                    raise NameError("quantconnect_read_backtest not available")
                 
                 if result:
                     state = result.get('state', '').lower()
@@ -598,18 +604,20 @@ class SingleNodeBacktestManager:
             # Use actual QuantConnect API
             logger.info(f"Cancelling backtest via API: {backtest_id}")
             
-            # Import the QuantConnect API functions
+            # Use the global QuantConnect API functions
             try:
-                from quantconnect_delete_backtest import quantconnect_delete_backtest
-                
-                # Cancel backtest using the actual API
-                result = await asyncio.get_event_loop().run_in_executor(
-                    self.executor,
-                    lambda: quantconnect_delete_backtest(
-                        project_id=self.current_job.project_id if self.current_job else 0,
-                        backtest_id=backtest_id
+                delete_backtest_func = globals().get('quantconnect_delete_backtest')
+                if delete_backtest_func:
+                    # Cancel backtest using the actual API
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self.executor,
+                        lambda: delete_backtest_func(
+                            project_id=self.current_job.project_id if self.current_job else 0,
+                            backtest_id=backtest_id
+                        )
                     )
-                )
+                else:
+                    raise NameError("quantconnect_delete_backtest not available")
                 
                 if result and 'success' in result:
                     success = result['success']

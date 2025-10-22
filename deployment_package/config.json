@@ -1,12 +1,14 @@
 {
-  "algorithm_name": "MNQ_FVG_1_60min_Optimization_YTD2025",
+  "algorithm_name": "MNQ_FVG_Individual_Contract_YTD2025",
   "algorithm_id": null,
   "backtest_settings": {
     "start_date": "2025-01-01",
     "end_date": "2025-10-21",
     "initial_cash": 100000,
     "resolution": "Minute",
-    "universe": "MNQ Futures",
+    "universe": "MNQ Individual Futures Contracts",
+    "contract_selection": "FrontMonth",
+    "rollover_frequency": "Monthly",
     "leverage": 3.2,
     "commission": 0.5,
     "slippage": 0.25
@@ -16,7 +18,18 @@
     "take_profit_ticks": 6,
     "max_hold_time_minutes": 60,
     "volume_anomaly_threshold": 2.0,
-    "min_confluence_score": 0.3
+    "min_confluence_score": 0.3,
+    "contract_rollover_days_before_expiry": 3,
+    "min_volume_threshold": 1000,
+    "max_contracts_per_position": 5,
+    "volume_tier_high_threshold": 0.4,
+    "volume_tier_medium_threshold": 0.2,
+    "volume_tier_low_threshold": 0.1,
+    "us_session_volume_multiplier": 2.0,
+    "overnight_volume_multiplier": 0.3,
+    "pre_market_volume_multiplier": 0.7,
+    "post_market_volume_multiplier": 0.5,
+    "volume_ma_period": 20
   },
   "performance_targets": {
     "target_hold_time_min": 1,

@@ -6,6 +6,8 @@ Analyzes and validates YTD 2025 backtest results for 1-60 minute optimization
 
 import json
 import re
+import requests
+import base64
 from datetime import datetime
 from pathlib import Path
 
@@ -290,6 +292,35 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         
         return report
 
+def get_quantconnect_backtest_results(project_id, backtest_id):
+    """Get backtest results directly from QuantConnect API"""
+    
+    user_id = "421529"
+    api_token = "c2cddb1ec44679f4edffaa3d9428e915aad02ded3a6574f0ea1e4c0e15fff34f"
+    
+    # Setup authentication
+    credentials = f"{user_id}:{api_token}"
+    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+    headers = {
+        'Authorization': f'Basic {encoded_credentials}',
+        'Content-Type': 'application/json'
+    }
+    
+    try:
+        # Get backtest details
+        backtest_url = f"https://www.quantconnect.com/api/v2/backtests/read/{project_id}/{backtest_id}"
+        response = requests.get(backtest_url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"API Error: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Exception getting backtest results: {e}")
+        return None
+
 def main():
     """Main analysis function"""
     
@@ -300,32 +331,72 @@ def main():
     
     analyzer = BacktestAnalyzer()
     
-    # Check for results file
-    results_file = Path("/root/FractalFVG/backtest_results_ytd2025.json")
+    # Try to get results from QuantConnect API first
+    project_id = "25767217"
+    backtest_id = "9e7133f574c248a6e733f720a389241d"
     
-    if results_file.exists():
-        print(f"📁 Loading results from: {results_file}")
-        with open(results_file, 'r') as f:
-            results = json.load(f)
-    else:
-        print("📝 Enter backtest results (paste from QuantConnect):")
-        print("Press Ctrl+D (Unix) or Ctrl+Z (Windows) when done")
-        print("")
+    print(f"🌐 Fetching backtest results from QuantConnect...")
+    print(f"Project ID: {project_id}")
+    print(f"Backtest ID: {backtest_id}")
+    
+    api_results = get_quantconnect_backtest_results(project_id, backtest_id)
+    
+    if api_results:
+        print("✅ Successfully retrieved results from API")
+        # Extract console logs from API results
+        console_logs = api_results.get('logs', [])
+        results_text = '\n'.join(console_logs)
         
-        results_text = ""
-        try:
-            while True:
-                line = input()
-                results_text += line + "\n"
-        except EOFError:
-            pass
-        
-        results = analyzer.parse_quantconnect_results(results_text)
-        
-        # Save parsed results
+        # Save raw results
+        results_file = Path("/root/FractalFVG/backtest_api_results.json")
         with open(results_file, 'w') as f:
-            json.dump(results, f, indent=2)
-        print(f"✅ Results saved to: {results_file}")
+            json.dump(api_results, f, indent=2)
+        print(f"📁 Raw API results saved: {results_file}")
+    else:
+        print("❌ Failed to get results from API, checking for local file...")
+        # Check for results file
+        results_file = Path("/root/FractalFVG/backtest_results_ytd2025.json")
+        
+        if results_file.exists():
+            print(f"📁 Loading results from: {results_file}")
+            with open(results_file, 'r') as f:
+                results = json.load(f)
+            results_text = ""
+        else:
+            print("📝 Enter backtest results (paste from QuantConnect):")
+            print("Press Ctrl+D (Unix) or Ctrl+Z (Windows) when done")
+            print("")
+            
+            results_text = ""
+            try:
+                while True:
+                    line = input()
+                    results_text += line + "\n"
+            except EOFError:
+                pass
+    
+    # Parse results
+    if 'results_text' in locals() and results_text:
+        results = analyzer.parse_quantconnect_results(results_text)
+    elif api_results:
+        # Try to extract metrics from API response structure
+        results = {
+            'total_return': api_results.get('statistics', {}).get('compoundingannualreturn'),
+            'sharpe_ratio': api_results.get('statistics', {}).get('sharperatio'),
+            'win_rate': api_results.get('statistics', {}).get('winrate'),
+            'profit_factor': None,  # Not directly available in API
+            'max_drawdown': api_results.get('statistics', {}).get('drawdown'),
+            'total_trades': api_results.get('statistics', {}).get('totaltrades'),
+            'ending_portfolio_value': api_results.get('statistics', {}).get('endingportfoliovalue')
+        }
+    else:
+        results = {}
+    
+    # Save parsed results
+    parsed_results_file = Path("/root/FractalFVG/backtest_results_ytd2025.json")
+    with open(parsed_results_file, 'w') as f:
+        json.dump(results, f, indent=2)
+    print(f"✅ Parsed results saved: {parsed_results_file}")
     
     # Validate performance
     validation = analyzer.validate_performance(results)
@@ -346,6 +417,11 @@ def main():
     # Display summary
     for item in validation['summary']:
         print(item)
+    
+    # Display raw results if available
+    if api_results:
+        print("\n🔍 RAW API RESULTS:")
+        print(json.dumps(api_results, indent=2)[:2000] + "..." if len(json.dumps(api_results)) > 2000 else json.dumps(api_results, indent=2))
     
     return results, validation, report
 
