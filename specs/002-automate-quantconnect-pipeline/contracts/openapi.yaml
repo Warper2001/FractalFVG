@@ -1,0 +1,1589 @@
+openapi: 3.0.3
+info:
+  title: Automated QuantConnect Pipeline API
+  description: RESTful API for automated algorithm upload, backtesting, and results analysis
+  version: 1.0.0
+  contact:
+    name: FractalFVG Development Team
+    email: dev@fractalfvg.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://pipeline.fractalfvg.com/api/v1
+    description: Production server
+
+paths:
+  /algorithms:
+    get:
+      summary: List all algorithms
+      description: Retrieve a paginated list of all algorithms
+      tags:
+        - Algorithms
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, validating, uploaded, compilation_failed, ready, archived]
+        - name: language
+          in: query
+          schema:
+            type: string
+            enum: [CSharp, Python]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  algorithms:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Algorithm'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create new algorithm
+      description: Create a new algorithm with files and metadata
+      tags:
+        - Algorithms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlgorithmRequest'
+      responses:
+        '201':
+          description: Algorithm created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Algorithm'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Algorithm with name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /algorithms/{algorithm_id}:
+    get:
+      summary: Get algorithm by ID
+      description: Retrieve detailed information about a specific algorithm
+      tags:
+        - Algorithms
+      parameters:
+        - name: algorithm_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Algorithm'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update algorithm
+      description: Update algorithm metadata and/or files
+      tags:
+        - Algorithms
+      parameters:
+        - name: algorithm_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlgorithmRequest'
+      responses:
+        '200':
+          description: Algorithm updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Algorithm'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete algorithm
+      description: Delete an algorithm and all associated data
+      tags:
+        - Algorithms
+      parameters:
+        - name: algorithm_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Algorithm deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot delete algorithm with running backtests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /algorithms/{algorithm_id}/upload:
+    post:
+      summary: Upload algorithm to QuantConnect
+      description: Upload algorithm files to QuantConnect and compile
+      tags:
+        - Algorithms
+      parameters:
+        - name: algorithm_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Upload started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Algorithm already uploaded or not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests:
+    get:
+      summary: List backtests
+      description: Retrieve a paginated list of backtests
+      tags:
+        - Backtests
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: algorithm_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, compiling, running, completed, failed, cancelled, timeout]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backtests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Backtest'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create new backtest
+      description: Start a new backtest for an algorithm
+      tags:
+        - Backtests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBacktestRequest'
+      responses:
+        '201':
+          description: Backtest created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backtest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Algorithm not ready for backtesting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{backtest_id}:
+    get:
+      summary: Get backtest by ID
+      description: Retrieve detailed information about a specific backtest
+      tags:
+        - Backtests
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backtest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Cancel/delete backtest
+      description: Cancel a running backtest or delete a completed one
+      tags:
+        - Backtests
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Backtest cancelled/deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot delete backtest in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backtests/{backtest_id}/results:
+    get:
+      summary: Get backtest results
+      description: Retrieve performance metrics and detailed results
+      tags:
+        - Backtests
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include_trades
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_charts
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResults'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          description: Backtest not completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines:
+    get:
+      summary: List pipeline executions
+      description: Retrieve a paginated list of pipeline executions
+      tags:
+        - Pipelines
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, paused, completed, failed, cancelled]
+        - name: algorithm_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pipelines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PipelineExecution'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Start new pipeline execution
+      description: Start a new pipeline execution for one or more algorithms
+      tags:
+        - Pipelines
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePipelineRequest'
+      responses:
+        '201':
+          description: Pipeline started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{pipeline_id}:
+    get:
+      summary: Get pipeline execution by ID
+      description: Retrieve detailed information about a pipeline execution
+      tags:
+        - Pipelines
+      parameters:
+        - name: pipeline_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineExecution'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Cancel pipeline execution
+      description: Cancel a running pipeline execution
+      tags:
+        - Pipelines
+      parameters:
+        - name: pipeline_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Pipeline cancelled successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot cancel pipeline in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reports:
+    get:
+      summary: List reports
+      description: Retrieve a paginated list of generated reports
+      tags:
+        - Reports
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: pipeline_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: report_type
+          in: query
+          schema:
+            type: string
+            enum: [performance, comparison, analysis, summary]
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, html, pdf]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ResultReport'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Generate new report
+      description: Generate a new report for a pipeline execution or backtest
+      tags:
+        - Reports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Report generation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reports/{report_id}/download:
+    get:
+      summary: Download report file
+      description: Download the generated report file
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Report file download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Algorithm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "MNQ FVG Strategy v2.1"
+        description:
+          type: string
+          example: "Micro E-mini Nasdaq FVG trading strategy with volume confirmation"
+        language:
+          type: string
+          enum: [CSharp, Python]
+          example: "CSharp"
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgorithmFile'
+        metadata:
+          $ref: '#/components/schemas/AlgorithmMetadata'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        project_id:
+          type: integer
+          example: 12345
+        status:
+          $ref: '#/components/schemas/AlgorithmStatus'
+
+    AlgorithmFile:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Main.cs"
+        content:
+          type: string
+          example: "namespace QuantConnect.Algorithm.CSharp { ... }"
+        size:
+          type: integer
+          example: 2048
+        checksum:
+          type: string
+          example: "d41d8cd98f00b204e9800998ecf8427e"
+
+    AlgorithmMetadata:
+      type: object
+      properties:
+        initial_cash:
+          type: number
+          format: float
+          example: 100000
+        start_date:
+          type: string
+          format: date
+          example: "2023-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        resolution:
+          type: string
+          enum: [tick, second, minute, hour, daily]
+          example: "minute"
+        parameters:
+          type: object
+          additionalProperties: true
+          example:
+            ema_fast: 10
+            ema_slow: 100
+            volume_threshold: 2.0
+        risk_management:
+          $ref: '#/components/schemas/RiskSettings'
+
+    RiskSettings:
+      type: object
+      properties:
+        max_drawdown:
+          type: number
+          format: float
+          example: 0.15
+        max_position_size:
+          type: number
+          format: float
+          example: 0.02
+        stop_loss_ticks:
+          type: integer
+          example: 20
+        take_profit_ticks:
+          type: integer
+          example: 40
+        max_daily_loss:
+          type: number
+          format: float
+          example: 1000
+
+    AlgorithmStatus:
+      type: string
+      enum: [draft, validating, uploaded, compilation_failed, ready, archived]
+
+    CreateAlgorithmRequest:
+      type: object
+      required:
+        - name
+        - language
+        - files
+      properties:
+        name:
+          type: string
+          example: "MNQ FVG Strategy v2.1"
+        description:
+          type: string
+          example: "Micro E-mini Nasdaq FVG trading strategy"
+        language:
+          type: string
+          enum: [CSharp, Python]
+          example: "CSharp"
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgorithmFile'
+        metadata:
+          $ref: '#/components/schemas/AlgorithmMetadata'
+
+    UpdateAlgorithmRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Updated Strategy Name"
+        description:
+          type: string
+          example: "Updated description"
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlgorithmFile'
+        metadata:
+          $ref: '#/components/schemas/AlgorithmMetadata'
+
+    UploadResponse:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        message:
+          type: string
+          example: "Upload started successfully"
+
+    Backtest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        algorithm_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        project_id:
+          type: integer
+          example: 12345
+        compile_id:
+          type: string
+          example: "compile_1234567890"
+        name:
+          type: string
+          example: "Backtest - 2023 Q1"
+        parameters:
+          $ref: '#/components/schemas/BacktestParameters'
+        status:
+          $ref: '#/components/schemas/BacktestStatus'
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: number
+          format: float
+          example: 1800.5
+        results:
+          $ref: '#/components/schemas/BacktestResults'
+        error_message:
+          type: string
+          example: "Compilation failed: Syntax error in Main.cs"
+
+    BacktestParameters:
+      type: object
+      required:
+        - start_date
+        - end_date
+        - initial_cash
+        - resolution
+      properties:
+        start_date:
+          type: string
+          format: date
+          example: "2023-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2023-03-31"
+        initial_cash:
+          type: number
+          format: float
+          example: 100000
+        resolution:
+          type: string
+          enum: [tick, second, minute, hour, daily]
+          example: "minute"
+        language:
+          type: string
+          enum: [CSharp, Python]
+          example: "CSharp"
+        custom_parameters:
+          type: object
+          additionalProperties: true
+          example:
+            ema_fast: 10
+            ema_slow: 100
+
+    BacktestStatus:
+      type: string
+      enum: [pending, compiling, running, completed, failed, cancelled, timeout]
+
+    CreateBacktestRequest:
+      type: object
+      required:
+        - algorithm_id
+        - name
+        - parameters
+      properties:
+        algorithm_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Backtest - 2023 Q1"
+        parameters:
+          $ref: '#/components/schemas/BacktestParameters'
+
+    BacktestResults:
+      type: object
+      properties:
+        backtest_id:
+          type: string
+          format: uuid
+        statistics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        trades:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trade'
+        equity_curve:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquityPoint'
+        drawdown_periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/DrawdownPeriod'
+        charts:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChartData'
+        runtime_statistics:
+          $ref: '#/components/schemas/RuntimeStats'
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        backtest_id:
+          type: string
+          format: uuid
+        total_return:
+          type: number
+          format: float
+          example: 0.25
+        annual_return:
+          type: number
+          format: float
+          example: 0.18
+        sharpe_ratio:
+          type: number
+          format: float
+          example: 1.45
+        sortino_ratio:
+          type: number
+          format: float
+          example: 2.1
+        max_drawdown:
+          type: number
+          format: float
+          example: 0.08
+        max_drawdown_duration:
+          type: integer
+          example: 45
+        win_rate:
+          type: number
+          format: float
+          example: 0.65
+        profit_factor:
+          type: number
+          format: float
+          example: 1.8
+        total_trades:
+          type: integer
+          example: 156
+        average_win:
+          type: number
+          format: float
+          example: 250.5
+        average_loss:
+          type: number
+          format: float
+          example: -120.3
+        commission:
+          type: number
+          format: float
+          example: 1250.75
+        ending_portfolio_value:
+          type: number
+          format: float
+          example: 125000
+        beta:
+          type: number
+          format: float
+          example: 0.85
+        alpha:
+          type: number
+          format: float
+          example: 0.12
+        information_ratio:
+          type: number
+          format: float
+          example: 0.95
+        tracking_error:
+          type: number
+          format: float
+          example: 0.08
+        var_95:
+          type: number
+          format: float
+          example: 5000
+        cvar_95:
+          type: number
+          format: float
+          example: 7500
+        calmar_ratio:
+          type: number
+          format: float
+          example: 2.25
+        recovery_factor:
+          type: number
+          format: float
+          example: 3.1
+        volume_analysis:
+          $ref: '#/components/schemas/VolumeAnalysisMetrics'
+
+    VolumeAnalysisMetrics:
+      type: object
+      properties:
+        volume_confirmation_rate:
+          type: number
+          format: float
+          example: 0.78
+        average_volume_multiplier:
+          type: number
+          format: float
+          example: 2.3
+        high_volume_trades:
+          type: integer
+          example: 89
+        session_distribution:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          example:
+            us_session: 0.65
+            overnight: 0.25
+            pre_market: 0.10
+        volume_efficiency:
+          type: number
+          format: float
+          example: 1.45
+
+    Trade:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "trade_123456"
+        symbol:
+          type: string
+          example: "MNQ"
+        direction:
+          type: string
+          enum: [long, short]
+          example: "long"
+        entry_time:
+          type: string
+          format: date-time
+        exit_time:
+          type: string
+          format: date-time
+        entry_price:
+          type: number
+          format: float
+          example: 14500.25
+        exit_price:
+          type: number
+          format: float
+          example: 14550.75
+        quantity:
+          type: integer
+          example: 10
+        profit_loss:
+          type: number
+          format: float
+          example: 505.0
+        commission:
+          type: number
+          format: float
+          example: 2.5
+        entry_reason:
+          type: string
+          example: "FVG detected with volume confirmation"
+        exit_reason:
+          type: string
+          example: "Take profit reached"
+        bars_held:
+          type: integer
+          example: 45
+
+    EquityPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        portfolio_value:
+          type: number
+          format: float
+          example: 102500.5
+
+    DrawdownPeriod:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        drawdown_amount:
+          type: number
+          format: float
+          example: 8000
+        drawdown_percentage:
+          type: number
+          format: float
+          example: 0.064
+
+    ChartData:
+      type: object
+      properties:
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              data:
+                type: array
+                items:
+                  type: array
+                  items:
+                    - type: string
+                      format: date-time
+                    - type: number
+                      format: float
+
+    RuntimeStats:
+      type: object
+      properties:
+        total_runtime_seconds:
+          type: number
+          format: float
+          example: 1800.5
+        data_points_processed:
+          type: integer
+          example: 1500000
+        memory_usage_mb:
+          type: number
+          format: float
+          example: 512.3
+        cpu_usage_percent:
+          type: number
+          format: float
+          example: 45.2
+
+    PipelineExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        algorithm_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        backtest_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        status:
+          $ref: '#/components/schemas/PipelineStatus'
+        current_stage:
+          $ref: '#/components/schemas/PipelineStage'
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 75.5
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: number
+          format: float
+          example: 3600.0
+        stages_completed:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineStage'
+        error_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineError'
+        metadata:
+          $ref: '#/components/schemas/PipelineMetadata'
+
+    PipelineStatus:
+      type: string
+      enum: [pending, running, paused, completed, failed, cancelled]
+
+    PipelineStage:
+      type: string
+      enum: [validation, upload, compilation, backtest, analysis, reporting]
+
+    PipelineError:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        stage:
+          $ref: '#/components/schemas/PipelineStage'
+        error_type:
+          type: string
+          example: "API_RATE_LIMIT"
+        message:
+          type: string
+          example: "Rate limit exceeded, retrying in 30 seconds"
+        severity:
+          $ref: '#/components/schemas/ErrorSeverity'
+        retry_count:
+          type: integer
+          example: 2
+        resolved:
+          type: boolean
+          example: true
+
+    ErrorSeverity:
+      type: string
+      enum: [low, medium, high, critical]
+
+    PipelineMetadata:
+      type: object
+      properties:
+        algorithm_count:
+          type: integer
+          example: 1
+        backtest_count:
+          type: integer
+          example: 1
+        total_api_calls:
+          type: integer
+          example: 25
+        api_quota_used:
+          type: number
+          format: float
+          example: 0.15
+        retry_count:
+          type: integer
+          example: 3
+        performance_metrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+
+    CreatePipelineRequest:
+      type: object
+      required:
+        - algorithm_ids
+      properties:
+        algorithm_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        backtest_config:
+          $ref: '#/components/schemas/BacktestParameters'
+        notification_settings:
+          $ref: '#/components/schemas/NotificationConfig'
+        output_formats:
+          type: array
+          items:
+            type: string
+            enum: [json, csv, html, pdf]
+        comparative_analysis:
+          type: boolean
+          default: false
+
+    NotificationConfig:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        webhook_url:
+          type: string
+          format: uri
+        slack_channel:
+          type: string
+        on_completion:
+          type: boolean
+          default: true
+        on_error:
+          type: boolean
+          default: true
+
+    ResultReport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440003"
+        pipeline_execution_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        backtest_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        report_type:
+          $ref: '#/components/schemas/ReportType'
+        generated_at:
+          type: string
+          format: date-time
+        format:
+          $ref: '#/components/schemas/ReportFormat'
+        content:
+          $ref: '#/components/schemas/ReportContent'
+        file_path:
+          type: string
+          example: "/reports/performance_20231022_143022.html"
+        size_bytes:
+          type: integer
+          example: 256000
+        checksum:
+          type: string
+          example: "d41d8cd98f00b204e9800998ecf8427e"
+
+    ReportType:
+      type: string
+      enum: [performance, comparison, analysis, summary]
+
+    ReportFormat:
+      type: string
+      enum: [json, csv, html, pdf]
+
+    ReportContent:
+      type: object
+      properties:
+        executive_summary:
+          type: string
+          example: "Strategy shows strong performance with 1.45 Sharpe ratio"
+        performance_analysis:
+          $ref: '#/components/schemas/PerformanceAnalysis'
+        risk_analysis:
+          $ref: '#/components/schemas/RiskAnalysis'
+        volume_analysis:
+          $ref: '#/components/schemas/VolumeAnalysis'
+        recommendations:
+          type: array
+          items:
+            type: string
+          example: ["Consider increasing position size", "Optimize entry timing"]
+        comparisons:
+          $ref: '#/components/schemas/ComparisonAnalysis'
+        charts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartSpec'
+        appendices:
+          type: object
+          additionalProperties: true
+
+    PerformanceAnalysis:
+      type: object
+      properties:
+        strengths:
+          type: array
+          items:
+            type: string
+          example: ["High win rate", "Consistent returns"]
+        weaknesses:
+          type: array
+          items:
+            type: string
+          example: ["Occasional large drawdowns"]
+        key_metrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        trends:
+          type: object
+          additionalProperties:
+            type: string
+        benchmarks:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+
+    RiskAnalysis:
+      type: object
+      properties:
+        risk_level:
+          type: string
+          example: "Medium"
+        risk_factors:
+          type: array
+          items:
+            type: string
+          example: ["Market volatility", "Liquidity risk"]
+        drawdown_analysis:
+          type: object
+          additionalProperties: true
+        var_analysis:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    VolumeAnalysis:
+      type: object
+      properties:
+        confirmation_effectiveness:
+          type: number
+          format: float
+          example: 0.78
+        session_performance:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          example:
+            us_session: 0.25
+            overnight: 0.15
+            pre_market: 0.05
+        volume_anomalies:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeAnomaly'
+        optimization_suggestions:
+          type: array
+          items:
+            type: string
+
+    VolumeAnomaly:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        multiplier:
+          type: number
+          format: float
+          example: 3.2
+        impact:
+          type: string
+          example: "High volume confirmed breakout"
+
+    ComparisonAnalysis:
+      type: object
+      properties:
+        baseline_metrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        comparison_metrics:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        improvements:
+          type: array
+          items:
+            type: string
+        regressions:
+          type: array
+          items:
+            type: string
+        statistical_significance:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+
+    ChartSpec:
+      type: object
+      properties:
+        chart_type:
+          type: string
+          example: "line"
+        title:
+          type: string
+          example: "Portfolio Equity Curve"
+        data_source:
+          type: string
+          example: "equity_curve"
+        x_axis:
+          type: string
+          example: "Time"
+        y_axis:
+          type: string
+          example: "Portfolio Value ($)"
+        configuration:
+          type: object
+          additionalProperties: true
+
+    CreateReportRequest:
+      type: object
+      required:
+        - pipeline_id
+        - report_type
+        - format
+      properties:
+        pipeline_id:
+          type: string
+          format: uuid
+        backtest_id:
+          type: string
+          format: uuid
+        report_type:
+          $ref: '#/components/schemas/ReportType'
+        format:
+          $ref: '#/components/schemas/ReportFormat'
+        include_charts:
+          type: boolean
+          default: true
+        include_recommendations:
+          type: boolean
+          default: true
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        pages:
+          type: integer
+          example: 8
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        message:
+          type: string
+          example: "Algorithm name is required"
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Algorithms
+    description: Algorithm management operations
+  - name: Backtests
+    description: Backtest execution and management
+  - name: Pipelines
+    description: Pipeline orchestration and monitoring
+  - name: Reports
+    description: Report generation and management
