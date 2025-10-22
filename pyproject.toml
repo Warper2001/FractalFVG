@@ -3,19 +3,59 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fractal-fvg"
-version = "0.1.0"
-description = "FVG Confluence Trading Strategy Research"
-authors = [{name = "FVG Research Team"}]
+name = "fractalfvg-pipeline"
+version = "1.0.0"
+description = "Automated QuantConnect Pipeline for Algorithm Trading"
+authors = [{name = "FractalFVG Team"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "requests>=2.31.0",
+    "urllib3>=2.0.0",
+    "cryptography>=41.0.0",
+    "click>=8.1.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+    "scikit-learn>=1.3.0",
+    "scipy>=1.10.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "ruff>=0.0.280",
+]
+enhanced = [
+    "tenacity>=8.2.0",
+    "pybreaker>=1.0.0",
+    "keyring>=24.0.0",
+]
+
+[project.scripts]
+pipeline = "src.cli.main:cli"
+fractalfvg = "src.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/FractalFVG/pipeline"
+Repository = "https://github.com/FractalFVG/pipeline"
+Documentation = "https://github.com/FractalFVG/pipeline/docs"
+Issues = "https://github.com/FractalFVG/pipeline/issues"
 
 [tool.black]
 line-length = 88
@@ -35,23 +75,42 @@ extend-exclude = '''
 )/
 '''
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 88
-known_first_party = ["src"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
 
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "W503"]
-exclude = [
-    ".git",
-    "__pycache__",
-    "build",
-    "dist",
-    ".venv",
-    ".eggs",
-    "*.egg",
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
 ]
 
 [tool.mypy]

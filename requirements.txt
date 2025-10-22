@@ -1,5 +1,12 @@
-# QuantConnect LEAN dependencies
-# Note: These are available in QuantConnect environment
+# Automated QuantConnect Pipeline Dependencies
+
+# Core dependencies for pipeline functionality
+requests>=2.31.0
+urllib3>=2.0.0
+cryptography>=41.0.0
+click>=8.1.0
+
+# QuantConnect LEAN dependencies (available in QuantConnect environment)
 # QuantConnect
 # QuantConnect.Algorithm
 # QuantConnect.Algorithm.Framework
@@ -35,3 +42,8 @@ psutil>=5.9.0
 
 # Configuration management
 pyyaml>=6.0
+
+# Optional enhanced functionality (uncomment if needed)
+# tenacity>=8.2.0  # Advanced retry patterns
+# pybreaker>=1.0.0  # Circuit breaker pattern
+# keyring>=24.0.0   # System keyring integration
