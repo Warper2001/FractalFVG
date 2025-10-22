@@ -70,6 +70,7 @@ class FairValueGapIndicator(FVGIndicator):
         }
         
         logger.info(f"FVG Indicator initialized: {name}, timeframe: {timeframe}min")
+        logger.debug(f"FVG Indicator settings - min_size: {min_fvg_size}, volume_filter: {enable_volume_filter}, strength_filter: {enable_strength_filter}")
         
     def Update(self, input_data: Any) -> bool:
         """
@@ -160,11 +161,19 @@ class FairValueGapIndicator(FVGIndicator):
             self.detection_stats['last_detection_time'] = max(f['time'] for f in filtered_fvgs)
             
         # Track performance
-        self._track_performance(start_time)
+        duration = (datetime.now() - start_time).total_seconds()
+        self._log_performance_metrics("FVG detection", duration)
         
         # Log detection
         if len(filtered_fvgs) > 0:
             self._log_debug(f"Detected {len(filtered_fvgs)} FVGs on {self.timeframe}min timeframe")
+            logger.info(f"FVG Detection Summary [{self.timeframe}min]: {len(new_fvgs)} raw -> {len(filtered_fvgs)} filtered (size: {size_filtered}, strength: {strength_filtered}, volume: {volume_filtered})")
+            
+            # Log individual FVG details
+            for i, fvg in enumerate(filtered_fvgs):
+                logger.debug(f"FVG #{i+1} [{self.timeframe}min]: {fvg['type'].upper()} {fvg['size']:.2f}pts @ {fvg['midpoint']:.2f}, strength: {fvg['strength']:.3f}, confidence: {fvg.get('confidence', 0):.3f}")
+        else:
+            logger.debug(f"No FVGs detected on {self.timeframe}min timeframe (analyzed {len(self.price_data) - 2} patterns)")
             
     def _filter_fvgs(self, fvgs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -656,3 +665,351 @@ class FairValueGapIndicator(FVGIndicator):
         )
         
         return min(confidence, 1.0)
+        
+    def _log_debug(self, message: str) -> None:
+        """Log debug message with indicator context."""
+        logger.debug(f"[{self.name}] {message}")
+        
+    def _log_error(self, message: str) -> None:
+        """Log error message with indicator context."""
+        logger.error(f"[{self.name}] {message}")
+        
+    def _log_fvg_operation(self, operation: str, details: Dict[str, Any]) -> None:
+        """
+        Log FVG operation with structured details.
+        
+        Args:
+            operation: Type of operation (detection, validation, filtering, etc.)
+            details: Operation details
+        """
+        log_message = f"FVG {operation} [{self.timeframe}min]:"
+        
+        if 'count' in details:
+            log_message += f" count={details['count']}"
+        if 'size' in details:
+            log_message += f" size={details['size']:.2f}"
+        if 'strength' in details:
+            log_message += f" strength={details['strength']:.3f}"
+        if 'confidence' in details:
+            log_message += f" confidence={details['confidence']:.3f}"
+        if 'type' in details:
+            log_message += f" type={details['type']}"
+        if 'time' in details:
+            log_message += f" time={details['time']}"
+            
+        logger.info(log_message)
+        
+    def _log_performance_metrics(self, operation: str, duration: float) -> None:
+        """
+        Log performance metrics for operations.
+        
+        Args:
+            operation: Operation name
+            duration: Duration in seconds
+        """
+        logger.debug(f"Performance [{self.name}]: {operation} took {duration:.3f}s")
+        
+        # Log warning if operation is slow
+        if duration > 0.1:  # 100ms threshold
+            logger.warning(f"Slow operation detected: {operation} took {duration:.3f}s on {self.timeframe}min timeframe")
+        
+    def validate_fvg_data_structures(self) -> Dict[str, Any]:
+        """
+        Validate FVG data structures and ensure consistency.
+        
+        Returns:
+            Validation report with any issues found
+        """
+        validation_report = {
+            'is_valid': True,
+            'issues': [],
+            'warnings': [],
+            'statistics': {},
+            'recommendations': []
+        }
+        
+        # Check if we have any FVGs
+        if not self.detected_fvgs:
+            validation_report['warnings'].append("No FVGs detected")
+            validation_report['statistics']['total_fvgs'] = 0
+            return validation_report
+            
+        # Validate each FVG
+        valid_fvgs = []
+        for i, fvg in enumerate(self.detected_fvgs):
+            fvg_issues = self._validate_single_fvg(fvg, i)
+            if fvg_issues:
+                validation_report['issues'].extend(fvg_issues)
+            else:
+                valid_fvgs.append(fvg)
+                
+        # Check for duplicate FVGs
+        duplicates = self._find_duplicate_fvgs(valid_fvgs)
+        if duplicates:
+            validation_report['warnings'].append(f"Found {len(duplicates)} potential duplicate FVGs")
+            validation_report['recommendations'].append("Consider merging overlapping FVGs")
+            
+        # Check FVG distribution
+        distribution_issues = self._validate_fvg_distribution(valid_fvgs)
+        validation_report['issues'].extend(distribution_issues)
+        
+        # Update statistics
+        validation_report['statistics'] = {
+            'total_fvgs': len(self.detected_fvgs),
+            'valid_fvgs': len(valid_fvgs),
+            'invalid_fvgs': len(self.detected_fvgs) - len(valid_fvgs),
+            'bullish_fvgs': len([f for f in valid_fvgs if f['type'] == 'bullish']),
+            'bearish_fvgs': len([f for f in valid_fvgs if f['type'] == 'bearish']),
+            'average_size': np.mean([f['size'] for f in valid_fvgs]) if valid_fvgs else 0,
+            'average_strength': np.mean([f['strength'] for f in valid_fvgs]) if valid_fvgs else 0,
+            'size_range': (min([f['size'] for f in valid_fvgs]), max([f['size'] for f in valid_fvgs])) if valid_fvgs else (0, 0),
+            'strength_range': (min([f['strength'] for f in valid_fvgs]), max([f['strength'] for f in valid_fvgs])) if valid_fvgs else (0, 0)
+        }
+        
+        # Overall validity
+        validation_report['is_valid'] = len(validation_report['issues']) == 0
+        
+        # Log validation results
+        if validation_report['issues']:
+            logger.warning(f"FVG validation issues [{self.timeframe}min]: {len(validation_report['issues'])} issues found")
+            for issue in validation_report['issues']:
+                logger.warning(f"  - {issue}")
+                
+        if validation_report['warnings']:
+            logger.info(f"FVG validation warnings [{self.timeframe}min]: {len(validation_report['warnings'])} warnings")
+            for warning in validation_report['warnings']:
+                logger.info(f"  - {warning}")
+                
+        # Log validation summary
+        stats = validation_report['statistics']
+        logger.info(f"FVG validation summary [{self.timeframe}min]: {stats['valid_fvgs']}/{stats['total_fvgs']} valid, "
+                   f"Bullish: {stats['bullish_fvgs']}, Bearish: {stats['bearish_fvgs']}, "
+                   f"Avg size: {stats['average_size']:.2f}, Avg strength: {stats['average_strength']:.3f}")
+        
+        return validation_report
+        
+    def _validate_single_fvg(self, fvg: Dict[str, Any], index: int) -> List[str]:
+        """
+        Validate a single FVG data structure.
+        
+        Args:
+            fvg: FVG to validate
+            index: Index of FVG in the list
+            
+        Returns:
+            List of validation issues
+        """
+        issues = []
+        
+        # Required fields check
+        required_fields = ['type', 'time', 'top', 'bottom', 'size', 'timeframe', 'volume', 'strength']
+        for field in required_fields:
+            if field not in fvg:
+                issues.append(f"FVG {index}: Missing required field '{field}'")
+                
+        # Type validation
+        if 'type' in fvg and fvg['type'] not in ['bullish', 'bearish']:
+            issues.append(f"FVG {index}: Invalid type '{fvg['type']}'")
+            
+        # Logical consistency checks
+        if all(key in fvg for key in ['top', 'bottom', 'size']):
+            if fvg['top'] <= fvg['bottom']:
+                issues.append(f"FVG {index}: Top price must be greater than bottom price")
+                
+            calculated_size = fvg['top'] - fvg['bottom']
+            if abs(calculated_size - fvg['size']) > 0.01:  # Allow small rounding differences
+                issues.append(f"FVG {index}: Size mismatch (calculated: {calculated_size}, stored: {fvg['size']})")
+                
+        # Range validations
+        if 'size' in fvg:
+            if fvg['size'] <= 0:
+                issues.append(f"FVG {index}: Size must be positive")
+            elif fvg['size'] < self.min_fvg_size:
+                issues.append(f"FVG {index}: Size below minimum threshold")
+                
+        if 'strength' in fvg:
+            if not (0 <= fvg['strength'] <= 1):
+                issues.append(f"FVG {index}: Strength must be between 0 and 1")
+                
+        if 'timeframe' in fvg:
+            if fvg['timeframe'] not in self.config.timeframes:
+                issues.append(f"FVG {index}: Timeframe {fvg['timeframe']} not in configured timeframes")
+                
+        if 'volume' in fvg:
+            if fvg['volume'] < 0:
+                issues.append(f"FVG {index}: Volume cannot be negative")
+                
+        # Time validation
+        if 'time' in fvg:
+            try:
+                if isinstance(fvg['time'], str):
+                    datetime.fromisoformat(fvg['time'].replace('Z', '+00:00'))
+                elif not isinstance(fvg['time'], datetime):
+                    issues.append(f"FVG {index}: Time must be datetime or ISO string")
+            except (ValueError, AttributeError):
+                issues.append(f"FVG {index}: Invalid time format")
+                
+        return issues
+        
+    def _find_duplicate_fvgs(self, fvgs: List[Dict[str, Any]], tolerance: float = 0.25) -> List[List[int]]:
+        """
+        Find potentially duplicate FVGs.
+        
+        Args:
+            fvgs: List of FVGs to check
+            tolerance: Price tolerance for duplicate detection
+            
+        Returns:
+            List of duplicate groups (indices)
+        """
+        duplicates = []
+        
+        for i, fvg1 in enumerate(fvgs):
+            duplicate_group = [i]
+            
+            for j, fvg2 in enumerate(fvgs[i+1:], i+1):
+                # Check for similar price levels and time
+                price_similar = abs(fvg1['midpoint'] - fvg2['midpoint']) <= tolerance
+                time_similar = abs((fvg1['time'] - fvg2['time']).total_seconds()) <= 300  # 5 minutes
+                
+                if price_similar and time_similar:
+                    duplicate_group.append(j)
+                    
+            if len(duplicate_group) > 1:
+                duplicates.append(duplicate_group)
+                
+        return duplicates
+        
+    def _validate_fvg_distribution(self, fvgs: List[Dict[str, Any]]) -> List[str]:
+        """
+        Validate FVG distribution for quality control.
+        
+        Args:
+            fvgs: List of FVGs to validate
+            
+        Returns:
+            List of distribution issues
+        """
+        issues = []
+        
+        if len(fvgs) < 2:
+            return issues
+            
+        # Check for clustering
+        sizes = [f['size'] for f in fvgs]
+        strengths = [f['strength'] for f in fvgs]
+        
+        # Size distribution check
+        size_std = np.std(sizes)
+        size_mean = np.mean(sizes)
+        
+        if size_std > size_mean * 0.8:  # High variance
+            issues.append("FVG sizes have high variance - consider quality filtering")
+            
+        # Strength distribution check
+        strength_std = np.std(strengths)
+        if strength_std > 0.4:  # High variance in strength
+            issues.append("FVG strengths have high variance - check calculation consistency")
+            
+        # Time distribution check
+        if len(fvgs) > 10:
+            times = [f['time'] for f in fvgs if isinstance(f['time'], datetime)]
+            if len(times) > 1:
+                time_span = (max(times) - min(times)).total_seconds() / 3600  # hours
+                if time_span > 24:  # More than 24 hours of FVGs
+                    issues.append("FVGs span more than 24 hours - consider time-based filtering")
+                    
+        return issues
+        
+    def clean_fvg_data(self) -> Dict[str, Any]:
+        """
+        Clean and standardize FVG data structures.
+        
+        Returns:
+            Cleaning report with changes made
+        """
+        cleaning_report = {
+            'original_count': len(self.detected_fvgs),
+            'cleaned_count': 0,
+            'removed_count': 0,
+            'modifications': [],
+            'cleaned_fvgs': []
+        }
+        
+        cleaned_fvgs = []
+        
+        for i, fvg in enumerate(self.detected_fvgs):
+            cleaned_fvg = self._clean_single_fvg(fvg, i)
+            
+            if cleaned_fvg is None:
+                cleaning_report['removed_count'] += 1
+                cleaning_report['modifications'].append(f"Removed invalid FVG {i}")
+            else:
+                if cleaned_fvg != fvg:
+                    cleaning_report['modifications'].append(f"Cleaned FVG {i}")
+                cleaned_fvgs.append(cleaned_fvg)
+                
+        # Update the detected FVGs
+        self.detected_fvgs = cleaned_fvgs
+        cleaning_report['cleaned_count'] = len(cleaned_fvgs)
+        cleaning_report['cleaned_fvgs'] = cleaned_fvgs
+        
+        # Log cleaning results
+        if cleaning_report['modifications']:
+            logger.info(f"FVG data cleaning [{self.timeframe}min]: {cleaning_report['original_count']} -> {cleaning_report['cleaned_count']} "
+                       f"({cleaning_report['removed_count']} removed)")
+            for modification in cleaning_report['modifications'][:5]:  # Log first 5 modifications
+                logger.debug(f"  - {modification}")
+            if len(cleaning_report['modifications']) > 5:
+                logger.debug(f"  ... and {len(cleaning_report['modifications']) - 5} more modifications")
+        
+        return cleaning_report
+        
+    def _clean_single_fvg(self, fvg: Dict[str, Any], index: int) -> Optional[Dict[str, Any]]:
+        """
+        Clean a single FVG data structure.
+        
+        Args:
+            fvg: FVG to clean
+            index: Index of FVG
+            
+        Returns:
+            Cleaned FVG or None if invalid
+        """
+        cleaned = fvg.copy()
+        
+        # Standardize time format
+        if 'time' in cleaned:
+            if isinstance(cleaned['time'], str):
+                try:
+                    cleaned['time'] = datetime.fromisoformat(cleaned['time'].replace('Z', '+00:00'))
+                except ValueError:
+                    return None  # Invalid time format
+                    
+        # Ensure numeric fields are proper types
+        numeric_fields = ['top', 'bottom', 'size', 'volume', 'strength', 'midpoint']
+        for field in numeric_fields:
+            if field in cleaned:
+                try:
+                    cleaned[field] = float(cleaned[field])
+                except (ValueError, TypeError):
+                    return None  # Invalid numeric value
+                    
+        # Recalculate derived fields
+        if all(key in cleaned for key in ['top', 'bottom']):
+            cleaned['midpoint'] = (cleaned['top'] + cleaned['bottom']) / 2
+            cleaned['size'] = cleaned['top'] - cleaned['bottom']
+            
+        # Ensure strength is within bounds
+        if 'strength' in cleaned:
+            cleaned['strength'] = max(0.0, min(1.0, cleaned['strength']))
+            
+        # Add missing fields with defaults
+        if 'confidence' not in cleaned:
+            cleaned['confidence'] = self._calculate_fvg_confidence(
+                cleaned.get('size', 0),
+                cleaned.get('strength', 0),
+                cleaned.get('volume_anomaly', 0)
+            )
+            
+        return cleaned
