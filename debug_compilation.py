@@ -1,61 +1,60 @@
 #!/usr/bin/env python3
-"""
-Debug QuantConnect API Compilation
-"""
 
-import requests
-import base64
-import hashlib
+import sys
+import json
 import time
-import os
+from pathlib import Path
 
-def test_compilation():
-    """Test compilation with debug info"""
+# Add src directory to Python path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+from src.deployment.config import load_credentials
+from src.api.quantconnect_client import QuantConnectAPIClient
+
+def debug_compilation():
+    """Debug compilation process"""
     
-    # Credentials
-    user_id = "421529"
-    access_token = "c2cddb1ec44679f4edffaa3d9428e915aad02ded3a6574f0ea1e4c0e15fff34f"
-    project_id = 25760537
-    
-    # Create authentication
-    timestamp = str(int(time.time()))
-    time_stamped_token = f"{access_token}:{timestamp}".encode('utf-8')
-    hashed_token = hashlib.sha256(time_stamped_token).hexdigest()
-    authentication = f"{user_id}:{hashed_token}".encode('utf-8')
-    authentication = base64.b64encode(authentication).decode('ascii')
-    
-    headers = {
-        'Authorization': f'Basic {authentication}',
-        'Timestamp': timestamp,
-        'Content-Type': 'application/json'
-    }
-    
-    print(f"🔑 Headers: {headers}")
-    print(f"📋 Project ID: {project_id}")
-    
-    # Test compilation
-    data = {'projectId': str(project_id)}
-    
-    print(f"📤 Data: {data}")
-    
-    response = requests.post(
-        "https://www.quantconnect.com/api/v2/compile",
-        headers=headers,
-        json=data
-    )
-    
-    print(f"📊 Status Code: {response.status_code}")
-    print(f"📄 Response Headers: {dict(response.headers)}")
-    print(f"📝 Response Text: {response.text}")
-    
-    if response.status_code == 200:
-        try:
-            result = response.json()
-            print(f"✅ JSON Response: {result}")
-        except:
-            print("❌ Invalid JSON response")
-    else:
-        print(f"❌ Error: {response.status_code}")
+    try:
+        # Load credentials
+        credentials = load_credentials()
+        
+        # Create API client
+        client = QuantConnectAPIClient(credentials)
+        
+        # Use the last successful project ID
+        project_id = 25831120
+        
+        print(f"Debugging compilation for project {project_id}...")
+        
+        # Start a new compilation
+        print("1. Starting compilation...")
+        compile_result = client.compile_project(project_id)
+        
+        if compile_result.get("success"):
+            compile_id = compile_result.get("compileId")
+            print(f"   ✅ Compilation started! ID: {compile_id}")
+        else:
+            print(f"   ❌ Compilation failed to start: {compile_result}")
+            return
+        
+        # Check compilation status multiple times
+        print("2. Checking compilation status...")
+        for i in range(12):  # Check for 60 seconds (12 * 5 seconds)
+            time.sleep(5)
+            result = client.get_compile_result(project_id, compile_id)
+            state = result.get('state', 'Unknown')
+            print(f"   Check {i+1}: {state}")
+            
+            if state.lower() in ['build success', 'build error']:
+                print(f"   Final state: {state}")
+                if result.get('errors'):
+                    print(f"   Errors: {result['errors']}")
+                break
+        else:
+            print("   ⏰ Compilation still in progress after 60 seconds")
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
-    test_compilation()
+    debug_compilation()

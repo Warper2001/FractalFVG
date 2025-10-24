@@ -15,9 +15,9 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .logger import get_logger
-from .rate_limiter import RateLimiter
-from .api_error_handler import APIErrorHandler, APIError
+from src.utils.logger import get_logger
+from src.utils.rate_limiter import RateLimiter
+from src.utils.api_error_handler import APIErrorHandler, APIError
 
 
 class QuantConnectAPIClient:
@@ -108,7 +108,12 @@ class QuantConnectAPIClient:
     
     def _get_auth_headers(self, method: str, path: str, body: str = "") -> Dict[str, str]:
         """
-        Generate authentication headers using Basic Authentication and HMAC signature.
+        Generate authentication headers using Basic Authentication with hash as password.
+        
+        Based on testing, QuantConnect API expects:
+        - Basic Auth with user_id:hash (not user_id:api_token)
+        - Timestamp header with Unix timestamp (seconds)
+        - Hash is SHA256 of user_id + timestamp
         
         Args:
             method: HTTP method
@@ -121,13 +126,18 @@ class QuantConnectAPIClient:
         # Generate Unix timestamp
         timestamp = str(int(time.time()))
         
-        # Generate signature
-        signature = self._generate_signature(timestamp)
+        # Generate hash for password: SHA256 of user_id + timestamp (confirmed working)
+        message = f"{self.user_id}{timestamp}"
+        hash_password = hashlib.sha256(message.encode()).hexdigest()
+        
+        # Generate Basic Auth with hash as password
+        auth_string = f"{self.user_id}:{hash_password}"
+        auth_header = base64.b64encode(auth_string.encode()).decode()
         
         headers = {
-            'Authorization': f'Basic {self._generate_basic_auth()}',
+            'Authorization': f'Basic {auth_header}',
             'Timestamp': timestamp,
-            'Signature': signature
+            'Content-Type': 'application/json'
         }
         
         if self.organization_id:

@@ -1,0 +1,251 @@
+openapi: 3.0.3
+info:
+  title: Unified Deployment Script API
+  description: API schema for the unified deployment script functionality
+  version: 1.0.0
+
+paths:
+  /deployment:
+    post:
+      summary: Start a new deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentConfig'
+      responses:
+        '200':
+          description: Deployment started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineState'
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /deployment/{deployment_id}:
+    get:
+      summary: Get deployment status
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deployment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineState'
+        '404':
+          description: Deployment not found
+
+  /deployment/{deployment_id}/results:
+    get:
+      summary: Get deployment results
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deployment results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentResults'
+        '404':
+          description: Deployment not found or not completed
+
+components:
+  schemas:
+    DeploymentConfig:
+      type: object
+      required:
+        - algorithm_file_path
+      properties:
+        algorithm_file_path:
+          type: string
+          description: Path to the algorithm file to deploy
+        project_name:
+          type: string
+          description: Custom name for the project
+        backtest_name:
+          type: string
+          description: Custom name for the backtest
+        backtest_parameters:
+          type: object
+          description: Parameters for backtest execution
+        cleanup_test_projects:
+          type: boolean
+          default: true
+          description: Whether to clean up test projects after deployment
+        verbose_logging:
+          type: boolean
+          default: false
+          description: Enable detailed logging output
+
+    PipelineState:
+      type: object
+      required:
+        - deployment_id
+        - current_step
+        - progress_percentage
+        - started_at
+      properties:
+        deployment_id:
+          type: string
+          description: Unique identifier for this deployment
+        current_step:
+          type: string
+          enum:
+            - INITIALIZING
+            - VALIDATING
+            - CREATING_PROJECT
+            - UPLOADING_FILES
+            - COMPILING
+            - CREATING_BACKTEST
+            - MONITORING_BACKTEST
+            - RETRIEVING_RESULTS
+            - COMPLETED
+            - FAILED
+            - CLEANING_UP
+          description: Current pipeline step
+        progress_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Overall progress indicator
+        started_at:
+          type: string
+          format: date-time
+          description: Deployment start timestamp
+        completed_at:
+          type: string
+          format: date-time
+          description: Deployment completion timestamp
+        error_message:
+          type: string
+          description: Error details if deployment failed
+        project_id:
+          type: integer
+          description: Created project ID
+        compile_id:
+          type: string
+          description: Compilation ID
+        backtest_id:
+          type: string
+          description: Backtest ID
+        backtest_results:
+          type: object
+          description: Final backtest results
+
+    DeploymentResults:
+      type: object
+      required:
+        - deployment_id
+        - success
+      properties:
+        deployment_id:
+          type: string
+          description: Reference to deployment
+        success:
+          type: boolean
+          description: Whether deployment completed successfully
+        duration_seconds:
+          type: integer
+          description: Total deployment time
+        backtest_performance:
+          type: object
+          properties:
+            total_return:
+              type: number
+              description: Total return percentage
+            sharpe_ratio:
+              type: number
+              description: Sharpe ratio
+            max_drawdown:
+              type: number
+              description: Maximum drawdown percentage
+            win_rate:
+              type: number
+              description: Win rate percentage
+            total_trades:
+              type: integer
+              description: Number of trades executed
+        project_url:
+          type: string
+          description: URL to created project
+        backtest_url:
+          type: string
+          description: URL to backtest results
+
+    ProgressUpdate:
+      type: object
+      required:
+        - step_name
+        - step_progress
+        - overall_progress
+        - message
+        - timestamp
+      properties:
+        step_name:
+          type: string
+          description: Current step description
+        step_progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Progress within current step
+        overall_progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Overall deployment progress
+        message:
+          type: string
+          description: Status message for user
+        timestamp:
+          type: string
+          format: date-time
+          description: Update timestamp
+        details:
+          type: object
+          description: Additional step-specific details
+
+    Credentials:
+      type: object
+      required:
+        - user_id
+        - api_token
+      properties:
+        user_id:
+          type: string
+          description: QuantConnect user ID
+        api_token:
+          type: string
+          description: QuantConnect API token
+        organization_id:
+          type: string
+          description: Organization ID for enterprise accounts
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details

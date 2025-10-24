@@ -1,0 +1,37 @@
+{
+  "environment": "production",
+  "project_id": "mnq-fvg-ml-trading",
+  "algorithm_name": "MNQ_FVG_Enhanced_Volume_v1.0",
+  "source_path": "./quantconnect_mnq_fvg",
+  "backup_path": "./backups",
+  "quantconnect_url": "https://www.quantconnect.com/api/v2/",
+  "max_retries": 3,
+  "timeout_seconds": 300,
+  "health_check_interval": 30,
+  "monitoring_duration": 300,
+  "notification_settings": {
+    "email_enabled": true,
+    "slack_enabled": true,
+    "webhook_url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+    "recipients": ["dev-team@fractalfvg.com"]
+  },
+  "validation_rules": {
+    "min_performance_score": 0.8,
+    "max_error_count": 5,
+    "max_warning_count": 10,
+    "required_health_checks": ["algorithm_accessible", "config_consistent"],
+    "critical_health_checks": ["algorithm_accessible", "config_consistent"]
+  },
+  "rollback_triggers": {
+    "critical_health_check_failure": true,
+    "performance_score_below_threshold": true,
+    "error_count_exceeded": true,
+    "deployment_timeout": true
+  },
+  "testing": {
+    "unit_tests_enabled": true,
+    "integration_tests_enabled": true,
+    "performance_tests_enabled": true,
+    "security_tests_enabled": true
+  }
+}

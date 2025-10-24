@@ -1,0 +1,7 @@
+{
+  "errors": [
+    "(0) The API token hash is not valid. This could be due to an old hash, invalid API token, or an invalid timestamp."
+  ],
+  "errorCode": 10002,
+  "success": false
+}

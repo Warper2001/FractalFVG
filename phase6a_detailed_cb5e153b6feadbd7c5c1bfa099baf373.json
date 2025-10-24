@@ -1,0 +1,130 @@
+{
+  "backtest": {
+    "note": "Complete MNQ FVG detection and ML prediction system with multi-timeframe analysis and risk management",
+    "name": "Phase6A_Production_Integrated_20251023_143056",
+    "organizationId": "76b3373f9f382b61544f33d430a72be0",
+    "projectId": 25780050,
+    "completed": true,
+    "optimizationId": null,
+    "backtestId": "cb5e153b6feadbd7c5c1bfa099baf373",
+    "tradeableDates": 0,
+    "researchGuide": {
+      "minutes": 44,
+      "backtestCount": 69,
+      "parameters": 0
+    },
+    "backtestStart": "2025-10-23 14:30:57",
+    "backtestEnd": "2025-10-23 14:30:57",
+    "created": "2025-10-23 14:30:57",
+    "snapshotId": 25811031,
+    "status": "Runtime Error",
+    "error": "During the algorithm initialization, the following exception has occurred: Unable to cast object of type &#039;QuantConnect.Securities.Security&#039; to type &#039;QuantConnect.Securities.Future.Future&#039;. in QCAlgorithm.cs:line 2253 Unable to cast object of type &#039;QuantConnect.Securities.Security&#039; to type &#039;QuantConnect.Securities.Future.Future&#039;.",
+    "stacktrace": "Unable to cast object of type 'QuantConnect.Securities.Security' to type 'QuantConnect.Securities.Future.Future'. in QCAlgorithm.cs:line 2253 Unable to cast object of type 'QuantConnect.Securities.Security' to type 'QuantConnect.Securities.Future.Future'.",
+    "progress": 1,
+    "hasInitializeError": true,
+    "charts": {
+      "Strategy Equity": {
+        "name": "Strategy Equity"
+      },
+      "Benchmark": {
+        "name": "Benchmark"
+      },
+      "Portfolio Margin": {
+        "name": "Portfolio Margin"
+      },
+      "Assets Sales Volume": {
+        "name": "Assets Sales Volume"
+      }
+    },
+    "parameterSet": [],
+    "rollingWindow": null,
+    "runtimeStatistics": {
+      "Equity": "$100,000.00",
+      "Fees": "-$0.00",
+      "Holdings": "$0.00",
+      "Net Profit": "$0.00",
+      "Probabilistic Sharpe Ratio": "0%",
+      "Return": "0.00 %",
+      "Unrealized": "$0.00",
+      "Volume": "$0.00"
+    },
+    "statistics": {},
+    "totalPerformance": {
+      "tradeStatistics": {
+        "startDateTime": null,
+        "endDateTime": null,
+        "totalNumberOfTrades": 0,
+        "numberOfWinningTrades": 0,
+        "numberOfLosingTrades": 0,
+        "totalProfitLoss": "0",
+        "totalProfit": "0",
+        "totalLoss": "0",
+        "largestProfit": "0",
+        "largestLoss": "0",
+        "averageProfitLoss": "0",
+        "averageProfit": "0",
+        "averageLoss": "0",
+        "averageTradeDuration": "00:00:00",
+        "averageWinningTradeDuration": "00:00:00",
+        "averageLosingTradeDuration": "00:00:00",
+        "medianTradeDuration": "00:00:00",
+        "medianWinningTradeDuration": "00:00:00",
+        "medianLosingTradeDuration": "00:00:00",
+        "maxConsecutiveWinningTrades": 0,
+        "maxConsecutiveLosingTrades": 0,
+        "profitLossRatio": "0",
+        "winLossRatio": "0",
+        "winRate": "0",
+        "lossRate": "0",
+        "averageMAE": "0",
+        "averageMFE": "0",
+        "largestMAE": "0",
+        "largestMFE": "0",
+        "maximumClosedTradeDrawdown": "0",
+        "maximumIntraTradeDrawdown": "0",
+        "profitLossStandardDeviation": "0",
+        "profitLossDownsideDeviation": "0",
+        "profitFactor": "0",
+        "sharpeRatio": "0",
+        "sortinoRatio": "0",
+        "profitToMaxDrawdownRatio": "0",
+        "maximumEndTradeDrawdown": "0",
+        "averageEndTradeDrawdown": "0",
+        "maximumDrawdownDuration": "00:00:00",
+        "totalFees": "0"
+      },
+      "portfolioStatistics": {
+        "averageWinRate": "0",
+        "averageLossRate": "0",
+        "profitLossRatio": "0",
+        "winRate": "0",
+        "lossRate": "0",
+        "expectancy": "0",
+        "startEquity": "0",
+        "endEquity": "0",
+        "compoundingAnnualReturn": "0",
+        "drawdown": "0",
+        "totalNetProfit": "0",
+        "sharpeRatio": "0",
+        "probabilisticSharpeRatio": "0",
+        "sortinoRatio": "0",
+        "alpha": "0",
+        "beta": "0",
+        "annualStandardDeviation": "0",
+        "annualVariance": "0",
+        "informationRatio": "0",
+        "trackingError": "0",
+        "treynorRatio": "0",
+        "portfolioTurnover": "0",
+        "valueAtRisk99": "0",
+        "valueAtRisk95": "0",
+        "drawdownRecovery": "0"
+      },
+      "closedTrades": []
+    },
+    "nodeName": "B2-8 node f6f2398a",
+    "outOfSampleMaxEndDate": "2025-07-25T00:00:00Z",
+    "outOfSampleDays": 90
+  },
+  "success": true
+}

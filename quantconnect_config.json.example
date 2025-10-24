@@ -1,0 +1,5 @@
+{
+  "user_id": "your_quantconnect_user_id",
+  "api_token": "your_quantconnect_api_token",
+  "organization_id": "your_organization_id_optional"
+}

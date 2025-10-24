@@ -1,0 +1,5 @@
+/root/FractalFVG/quantconnect_mnq_fvg/TestMain/obj/Debug/net9.0/TestMain.GeneratedMSBuildEditorConfig.editorconfig
+/root/FractalFVG/quantconnect_mnq_fvg/TestMain/obj/Debug/net9.0/TestMain.AssemblyInfoInputs.cache
+/root/FractalFVG/quantconnect_mnq_fvg/TestMain/obj/Debug/net9.0/TestMain.AssemblyInfo.cs
+/root/FractalFVG/quantconnect_mnq_fvg/TestMain/obj/Debug/net9.0/TestMain.csproj.CoreCompileInputs.cache
+/root/FractalFVG/quantconnect_mnq_fvg/TestMain/obj/Debug/net9.0/TestMain.sourcelink.json

@@ -252,7 +252,7 @@ class QuantConnectBacktestExecutionEngine:
                 name=config.name,
                 start_date=start_date,
                 end_date=end_date,
-                initial_cash=initial_cash
+                parameters={'initial_cash': initial_cash}
             )
             
             if api_results:

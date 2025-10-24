@@ -227,7 +227,7 @@ class ResilientQuantConnectClient:
         )
     
     def _get_headers(self) -> Dict[str, str]:
-        """Generate authentication headers"""
+        """Generate authentication headers following QuantConnect API v2 format"""
         timestamp = str(int(time.time()))
         time_stamped_token = f"{self.api_token}:{timestamp}".encode('utf-8')
         hashed_token = hashlib.sha256(time_stamped_token).hexdigest()

@@ -1,0 +1,17 @@
+{
+  "name": "Demo MNQ Algorithm",
+  "description": "Algorithm uploaded from demo_algorithm.py",
+  "language": "Py",
+  "files": [
+    {
+      "name": "demo_algorithm.py",
+      "path": "/root/FractalFVG/demo_algorithm.py",
+      "content": "# Demo MNQ Trading Algorithm\n# Simple moving average crossover strategy for demonstration\n\nclass MNQTradingAlgorithm:\n    def __init__(self):\n        self.fast_period = 10\n        self.slow_period = 30\n        self.symbol = \"MNQ\"\n        \n    def initialize(self):\n        \"\"\"Initialize the algorithm\"\"\"\n        self.set_start_date(2024, 1, 1)\n        self.set_end_date(2024, 12, 31)\n        self.set_cash(100000)\n        \n        # Add the underlying asset\n        self.add_equity(self.symbol, Resolution.MINUTE)\n        \n        # Create moving averages\n        self.fast_ma = self.sma(self.symbol, self.fast_period, Resolution.MINUTE)\n        self.slow_ma = self.sma(self.symbol, self.slow_period, Resolution.MINUTE)\n        \n    def on_data(self, data):\n        \"\"\"Handle data updates\"\"\"\n        if not self.fast_ma.is_ready or not self.slow_ma.is_ready:\n            return\n            \n        # Get current values\n        fast_value = self.fast_ma.current.value\n        slow_value = self.slow_ma.current.value\n        current_price = data[self.symbol].close\n        \n        # Trading logic\n        if fast_value > slow_value and not self.portfolio.invested:\n            # Buy signal\n            self.set_holdings(self.symbol, 1.0)\n            self.debug(f\"BUY {self.symbol} at {current_price}\")\n            \n        elif fast_value < slow_value and self.portfolio.invested:\n            # Sell signal\n            self.liquidate(self.symbol)\n            self.debug(f\"SELL {self.symbol} at {current_price}\")",
+      "size": 1511,
+      "checksum": "434581904e3a24fd07b0e5141e7e958a"
+    }
+  ],
+  "total_size": 1511,
+  "created_at": "2025-10-22T18:22:57.810579",
+  "main_file": "demo_algorithm.py"
+}

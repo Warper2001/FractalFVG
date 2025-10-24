@@ -8,6 +8,9 @@ Auto-generated from all feature plans. Last updated: 2025-10-20
 - Files (CSV/Parquet for research results, Pickle for ML models) (001-fvg-confluence-research)
 - Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, requests, asyncio, pandas, numpy (002-automate-quantconnect-pipeline)
 - Files (JSON/CSV for results, joblib for ML models) (002-automate-quantconnect-pipeline)
+- Python 3.11 (QuantConnect LEAN compatible) + requests, click, python-dotenv, existing QuantConnect API client (003-unified-deployment-script)
+- Local filesystem for algorithm files, .env for credentials (003-unified-deployment-script)
+- Python 3.11 (QuantConnect LEAN compatible) + requests, click, python-dotenv, tqdm, existing QuantConnect API client (003-unified-deployment-script)
 
 ## Project Structure
 ```
@@ -22,9 +25,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11 (QuantConnect LEAN compatible): Follow standard conventions
 
 ## Recent Changes
+- 003-unified-deployment-script: Added Python 3.11 (QuantConnect LEAN compatible) + requests, click, python-dotenv, tqdm, existing QuantConnect API client
+- 003-unified-deployment-script: Added Python 3.11 (QuantConnect LEAN compatible) + requests, click, python-dotenv, existing QuantConnect API client
 - 002-automate-quantconnect-pipeline: Added Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, requests, asyncio, pandas, numpy
-- 001-fvg-confluence-research: Added Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, NumPy, pandas, matplotlib
-- 001-fvg-confluence-research: Added Python 3.11 (QuantConnect LEAN compatible) + QuantConnect LEAN, NumPy, pandas
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
