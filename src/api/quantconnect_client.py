@@ -589,6 +589,22 @@ class QuantConnectAPIClient:
                 'consecutive_failures': metrics.consecutive_failures,
                 'errors_by_category': {k.value: v for k, v in metrics.errors_by_category.items()}
             }
+    
+    def read_project_nodes(self, project_id: int) -> Dict[str, Any]:
+        """
+        Read available and selected nodes for a project.
+        
+        Args:
+            project_id: Project ID
+            
+        Returns:
+            Dict[str, Any]: Node information
+        """
+        logger.debug(f"Reading project nodes for project {project_id}")
+        
+        response = self._make_request('GET', f'projects/read', params={'projectId': project_id})
+        
+        return response
         return None
     
     def reset_metrics(self):

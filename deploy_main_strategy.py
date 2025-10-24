@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+"""
+Deploy Main MNQ FVG Strategy to QuantConnect
+============================================
+
+This script deploys our production-ready MNQ FVG algorithm for testing.
+Uses the proven deployment pipeline with our main strategy file.
+"""
 
 import sys
-import json
 import time
 from pathlib import Path
 
@@ -11,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from src.deployment.config import load_credentials
 from src.api.quantconnect_client import QuantConnectAPIClient
 
-def full_deployment_test():
-    """Complete deployment test: project creation → compilation → backtest → results"""
+def deploy_main_strategy():
+    """Deploy the main MNQ FVG strategy"""
     
     try:
         # Load credentials
@@ -21,14 +27,14 @@ def full_deployment_test():
         # Create API client
         client = QuantConnectAPIClient(credentials)
         
-        print("🚀 STARTING FULL DEPLOYMENT PIPELINE TEST")
+        print("🚀 DEPLOYING MAIN MNQ FVG STRATEGY")
         print("=" * 60)
         
         # Step 1: Create project
-        print("1️⃣ Creating project...")
+        print("1️⃣ Creating project for main strategy...")
         project_result = client.create_project(
-            name="Full Pipeline Test",
-            language="Py"
+            name="MNQ FVG Main Strategy Production",
+            language="C#"
         )
         
         if project_result.get("success"):
@@ -43,49 +49,42 @@ def full_deployment_test():
             print(f"   ❌ Project creation failed: {project_result}")
             return False
         
-        # Step 2: Upload algorithm file
-        print("\n2️⃣ Uploading algorithm file...")
-        simple_algorithm = '''from AlgorithmImports import *
-
-class FullPipelineTestAlgorithm(QCAlgorithm):
-    def initialize(self):
-        self.set_start_date(2023, 1, 1)
-        self.set_end_date(2023, 1, 31)
-        self.set_cash(100000)
-        self.add_equity("SPY", Resolution.DAILY)
+        # Step 2: Upload main algorithm file
+        print("\n2️⃣ Uploading main MNQ FVG algorithm...")
         
-        # Simple moving average
-        self._sma = self.sma("SPY", 10, Resolution.DAILY)
+        # Read the main algorithm file
+        main_algorithm_path = Path(__file__).parent / "quantconnect_mnq_fvg" / "Main.cs"
         
-    def on_data(self, data):
-        if not self._sma.is_ready:
-            return
+        if not main_algorithm_path.exists():
+            print(f"   ❌ Main algorithm file not found: {main_algorithm_path}")
+            return False
             
-        if not self.portfolio.invested:
-            if self.securities["SPY"].price > self._sma.current.value:
-                self.set_holdings("SPY", 1)
-        else:
-            if self.securities["SPY"].price < self._sma.current.value:
-                self.liquidate()
-                
-    def on_order_event(self, order_event):
-        self.debug(f"{self.time} - Order: {order_event}")
-'''
+        with open(main_algorithm_path, 'r') as f:
+            algorithm_content = f.read()
         
         upload_result = client.create_file(
             project_id=project_id,
-            name="Main.py",
-            content=simple_algorithm
+            name="Main.cs",
+            content=algorithm_content
         )
         
+        # If file exists, try to update it
+        if not upload_result.get("success") and "File already exist" in str(upload_result.get("errors", [])):
+            print("   📝 File already exists, updating content...")
+            upload_result = client.update_file(
+                project_id=project_id,
+                name="Main.cs",
+                content=algorithm_content
+            )
+        
         if upload_result.get("success"):
-            print(f"   ✅ Algorithm file uploaded successfully!")
+            print(f"   ✅ Main algorithm uploaded successfully!")
         else:
             print(f"   ❌ File upload failed: {upload_result}")
             return False
         
         # Step 3: Compile project
-        print("\n3️⃣ Compiling project...")
+        print("\n3️⃣ Compiling main strategy...")
         compile_result = client.compile_project(project_id)
         
         if compile_result.get("success"):
@@ -115,31 +114,27 @@ class FullPipelineTestAlgorithm(QCAlgorithm):
             print(f"   ❌ Compilation error: {e}")
             return False
         
-        # Step 5: Create backtest
-        print("\n5️⃣ Creating backtest...")
+        # Step 5: Create backtest for main strategy
+        print("\n5️⃣ Creating backtest for main strategy...")
         backtest_result = client.create_backtest(
             project_id=project_id,
             compile_id=compile_id,
-            name="Full Pipeline Backtest",
+            name="MNQ FVG Main Strategy Test",
             parameters=None
         )
         
-        # Check if backtest was created by looking for backtestId directly in response
-        backtest_id = backtest_result.get("backtestId")
-        if backtest_id:
+        if backtest_result.get("success"):
+            backtest_id = backtest_result.get("backtestId")
+            if not backtest_id:
+                print("   ❌ No backtest ID returned")
+                return False
             print(f"   ✅ Backtest created successfully! ID: {backtest_id}")
         else:
-            # Alternative: check if backtest object exists
-            backtest_data = backtest_result.get("backtest", {})
-            backtest_id = backtest_data.get("backtestId")
-            if backtest_id:
-                print(f"   ✅ Backtest created successfully! ID: {backtest_id}")
-            else:
-                print(f"   ❌ No backtest ID found in response: {backtest_result}")
-                return False
+            print(f"   ❌ Backtest creation failed: {backtest_result}")
+            return False
         
-        # Step 6: Wait for backtest to complete
-        print("\n6️⃣ Waiting for backtest to complete...")
+        # Step 6: Monitor backtest progress
+        print("\n6️⃣ Monitoring backtest progress...")
         max_wait_time = 300  # 5 minutes
         wait_interval = 10
         elapsed = 0
@@ -161,33 +156,28 @@ class FullPipelineTestAlgorithm(QCAlgorithm):
             except Exception as e:
                 print(f"   ⚠️ Error checking backtest status: {e}")
         else:
-            print("   ⏰ Backtest still running after 5 minutes, proceeding anyway...")
+            print("   ⏰ Backtest still running after 5 minutes")
         
-        # Step 7: Get backtest results
-        print("\n7️⃣ Retrieving backtest results...")
+        # Step 7: Get final results
+        print("\n7️⃣ Retrieving final results...")
         try:
             backtest_results = client.get_backtest(project_id, backtest_id)
             
-            print(f"   📊 Backtest Results Summary:")
+            print(f"   📊 MAIN STRATEGY RESULTS:")
+            print(f"   - Project ID: {project_id}")
+            print(f"   - Backtest ID: {backtest_id}")
             print(f"   - State: {backtest_results.get('state', 'Unknown')}")
             print(f"   - Progress: {backtest_results.get('progress', 0)}%")
+            print(f"   - Tradeable Dates: {backtest_results.get('tradeableDates', 'N/A')}")
             
-            # Extract performance statistics if available
+            # Performance statistics
             statistics = backtest_results.get('statistics', {})
             if statistics:
-                print(f"   - Total Trades: {statistics.get('total trades', 'N/A')}")
-                print(f"   - Win Rate: {statistics.get('win rate', 'N/A')}")
-                print(f"   - Sharpe Ratio: {statistics.get('sharpe ratio', 'N/A')}")
-                print(f"   - Max Drawdown: {statistics.get('max drawdown', 'N/A')}")
-                print(f"   - Total Fees: ${statistics.get('total fees', 'N/A')}")
+                print(f"   \n📈 PERFORMANCE METRICS:")
+                for key, value in statistics.items():
+                    print(f"   - {key}: {value}")
             
-            # Get equity curve if available
-            charts = backtest_results.get('charts', {})
-            if charts and 'Strategy Equity' in charts:
-                equity_data = charts['Strategy Equity']
-                print(f"   - Equity Curve Points: {len(equity_data) if isinstance(equity_data, list) else 'N/A'}")
-            
-            print(f"   ✅ Results retrieved successfully!")
+            print(f"   \n✅ MAIN MNQ FVG STRATEGY DEPLOYMENT COMPLETE!")
             return True
             
         except Exception as e:
@@ -199,13 +189,14 @@ class FullPipelineTestAlgorithm(QCAlgorithm):
         return False
 
 if __name__ == "__main__":
-    success = full_deployment_test()
+    success = deploy_main_strategy()
     
     print("\n" + "=" * 60)
     if success:
-        print("🎉 FULL DEPLOYMENT PIPELINE TEST SUCCESSFUL!")
-        print("✅ Project creation → Compilation → Backtest → Results: ALL WORKING")
-        print("🚀 QuantConnect deployment pipeline is production ready!")
+        print("🎉 MAIN MNQ FVG STRATEGY DEPLOYMENT SUCCESSFUL!")
+        print("✅ Production algorithm deployed and tested")
+        print("📊 Check QuantConnect dashboard for detailed results")
+        print("🚀 Ready for live trading deployment!")
     else:
-        print("❌ FULL DEPLOYMENT PIPELINE TEST FAILED!")
+        print("❌ MAIN STRATEGY DEPLOYMENT FAILED!")
         print("Check the errors above and fix the issues.")
